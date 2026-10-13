@@ -105,13 +105,35 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
 - Logs go to stderr; stdout is the stdio transport. Never `print` in server
   code.
 
+### Source of truth for rules
+
+| Modules | Source of truth | Also useful |
+|---|---|---|
+| Vanilla | The official **Bomb Defusal Manual v1** (verification code 241) by Steel Crate Games: <https://www.bombmanual.com/web/index.html>, one anchor per module (`#Wires`, `#TheButton`, `#SimonSays`, `#Memory`, ...) | [ktane.timwi.de](https://ktane.timwi.de) for module IDs (`json/raw`) and as a readable copy |
+| Modded | The module's page on [ktane.timwi.de](https://ktane.timwi.de) (`HTML/<Name>.html`); there's no official manual | The mod's source code, when a page is ambiguous |
+
+- Every module sets `manual_url` to the exact page it was implemented and
+  checked against. `describe_module` returns it so the AI can cite it, and
+  `tests/test_manual_source.py` requires it (vanilla must point at the
+  official manual).
+- **Read tables from the HTML, not a text rendering.** Flattening a table
+  loses its rows and columns. Parse the `<table>` cells and compare them
+  with the rule-table constants (e.g. Simon Says' two tables).
+- The vanilla pack's `version` is the manual version (`vanilla/_manual.py`).
+  If Steel Crate Games publishes a new manual, add a new pack version rather
+  than editing v1's rules.
+- Cross-check, last done 2026-10-13: Wires, The Button and Memory rule
+  sentences match the official manual word for word, and both Simon Says
+  tables match it cell for cell.
+
 ### Adding a vanilla module
 
-1. Read the manual page on ktane.timwi.de and verify every rule; cite it in
-   tests by rule, not by vibes.
+1. Read the module's section of the official manual and verify every rule;
+   cite it in tests by rule, not by vibes.
 2. Create `src/pyktane/vanilla/<name>.py` with `Input`/`Answer`(/`State`)
    models and a `Module`/`StatelessModule` subclass setting `id`, `name`,
-   `guide`, `input_type`, `output_type` (and `state_type`).
+   `manual_url` (via `section_url("<Anchor>")`), `guide`, `input_type`,
+   `output_type` (and `state_type`).
 3. Register it in `vanilla/__init__.py`'s `PACK`.
 4. Test every rule branch (parametrized cases with a comment naming the rule),
    plus a Hypothesis property where one exists (e.g. "always cuts an existing

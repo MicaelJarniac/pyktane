@@ -30,6 +30,7 @@ class Fake(StatelessModule[Empty, Answer]):
     input_type = Empty
     output_type = Answer
     guide = ""
+    manual_url = "https://ktane.timwi.de"
 
     def __init__(self, id: str, name: str | None = None) -> None:
         self.id = id

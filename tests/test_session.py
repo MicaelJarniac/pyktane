@@ -263,6 +263,7 @@ class Boss(Module[NoState, Answer, SolveLog]):
 
     id = "Boss"
     name = "Boss"
+    manual_url = "https://ktane.timwi.de/HTML/Forget%20Me%20Not.html"
     guide = ""
     input_type = NoState
     output_type = Answer

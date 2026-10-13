@@ -27,6 +27,7 @@ from pydantic import ConfigDict, RootModel
 from pyktane.base import Answer, Frozen, LenientStrEnum
 from pyktane.edgework import BATTERIES, INDICATORS, IndicatorLabel, is_lit
 from pyktane.module import StatelessModule
+from pyktane.vanilla._manual import section_url
 lazy from pyktane.context import Context
 
 
@@ -107,6 +108,7 @@ class Button(StatelessModule[ButtonInput, ButtonAnswer]):
 
     id = "BigButton"
     name = "The Button"
+    manual_url = section_url("TheButton")
     guide = (
         "Report the button's color (blue, red, white, yellow) and its label "
         "(Abort, Detonate, Hold, Press). If told to hold it, report the color "

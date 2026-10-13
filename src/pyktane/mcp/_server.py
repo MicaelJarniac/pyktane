@@ -179,6 +179,7 @@ def create_server(manual: Manual | None = None) -> FastMCP:  # noqa: C901, PLR09
         return ModuleDetails(
             **_module_summary(rules, found).model_dump(),
             guide=found.guide,
+            manual_url=found.manual_url,
             input_schema=found.input_type.model_json_schema(),
         )
 

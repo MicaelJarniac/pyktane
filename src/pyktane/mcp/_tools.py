@@ -86,10 +86,12 @@ class ModuleDetails(ModuleSummary):
 
     Attributes:
         guide: What to read off the module.
+        manual_url: The manual page these rules come from, to cite or check.
         input_schema: JSON Schema for `solve`'s `data` argument.
     """
 
     guide: str
+    manual_url: str
     input_schema: dict[str, Any]
 
 

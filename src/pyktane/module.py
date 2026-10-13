@@ -29,6 +29,9 @@ class Module[I: BaseModel, O: Answer, S: Frozen](ABC):
         id: Stable identifier. Use the module ID from the Repository of
             Manual Pages (https://ktane.timwi.de) so modded packs can't clash.
         name: Human-readable name, as printed on the manual page.
+        manual_url: The manual page the rules were implemented and checked
+            against: the official manual for vanilla modules, the module's
+            page on the Repository of Manual Pages for modded ones.
         guide: Tells the defuser (or an AI) what to read off the module.
         input_type: What the defuser reports. Usually a `Frozen` model; a
             frozen `RootModel` over a union works for modules with several
@@ -39,6 +42,7 @@ class Module[I: BaseModel, O: Answer, S: Frozen](ABC):
 
     id: str
     name: str
+    manual_url: str
     guide: str
     input_type: type[I]
     output_type: type[O]

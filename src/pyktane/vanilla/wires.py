@@ -16,6 +16,7 @@ from annotated_types import Interval, Len
 from pyktane.base import Answer, Frozen, LenientStrEnum, ordinal
 from pyktane.edgework import SERIAL, last_digit
 from pyktane.module import StatelessModule
+from pyktane.vanilla._manual import section_url
 lazy from pyktane.context import Context
 
 MIN_WIRES: Final = 3
@@ -53,6 +54,7 @@ class Wires(StatelessModule[WiresInput, WiresAnswer]):
 
     id = "Wires"
     name = "Wires"
+    manual_url = section_url("Wires")
     guide = (
         "List the wire colors from top to bottom, ignoring empty slots. "
         "Colors: black, blue, red, white, yellow."

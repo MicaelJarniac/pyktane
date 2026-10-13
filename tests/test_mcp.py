@@ -160,6 +160,7 @@ async def test_list_and_describe_modules(client: Client[Any]) -> None:
 
     wires = await call(client, "describe_module", module="wires")
     assert wires["guide"].startswith("List the wire colors")
+    assert wires["manual_url"] == "https://www.bombmanual.com/web/index.html#Wires"
     assert wires["input_schema"]["properties"]["wires"]["maxItems"] == 6
 
 

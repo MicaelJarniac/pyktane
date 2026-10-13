@@ -22,6 +22,7 @@ from pyktane.base import Answer, Frozen, ordinal
 from pyktane.errors import ModuleStateError
 from pyktane.events import Event, Strike
 from pyktane.module import Module
+from pyktane.vanilla._manual import section_url
 lazy from pyktane.context import Context
 
 STAGES: Final = 5
@@ -134,6 +135,7 @@ class Memory(Module[MemoryInput, MemoryAnswer, MemoryState]):
 
     id = "Memory"
     name = "Memory"
+    manual_url = section_url("Memory")
     guide = (
         "Report the number on the display and the four button labels from "
         "left to right. Report every stage, in order; after a strike on this "

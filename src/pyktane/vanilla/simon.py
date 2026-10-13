@@ -18,6 +18,7 @@ from annotated_types import Len
 from pyktane.base import Answer, Frozen, LenientStrEnum
 from pyktane.edgework import SERIAL, has_vowel
 from pyktane.module import StatelessModule
+from pyktane.vanilla._manual import section_url
 lazy from pyktane.context import Context
 
 MAX_FLASHES: Final = 5
@@ -66,6 +67,7 @@ class SimonSays(StatelessModule[SimonInput, SimonAnswer]):
 
     id = "Simon"
     name = "Simon Says"
+    manual_url = section_url("SimonSays")
     guide = (
         "Report the full flash sequence so far (red, blue, green, yellow). "
         "The mapping depends on the strike count, so ask again after a strike."
