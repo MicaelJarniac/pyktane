@@ -12,9 +12,11 @@ Example:
     ...     print(missing.fact.question)
     What is the serial number?
     >>> bomb.set_fact("serial", "AB3CD4")
+    <Revision: 0 answers, 0 changed>
     >>> bomb.solve(simon, {"flashes": ["red", "green"]}).instruction
     'Press blue, yellow.'
     >>> bomb.strike()  # Simon's mapping depends on strikes.
+    <Revision: 0 answers, 0 changed>
     >>> bomb.solve(simon, {"flashes": ["red", "green"]}).instruction
     'Press yellow, blue.'
 """

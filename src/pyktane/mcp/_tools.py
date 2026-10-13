@@ -7,19 +7,24 @@ built and tested without the ``mcp`` extra.
 __all__: tuple[str, ...] = (
     "Answered",
     "BombSummary",
+    "Changed",
+    "ChangedAnswerInfo",
     "FactInfo",
+    "HistoryItem",
     "InstanceSummary",
     "ModuleDetails",
     "ModuleSummary",
     "NeedsFact",
     "SolveResult",
     "Undone",
+    "Updated",
 )
 
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, JsonValue
 
+from pyktane.actions import Action
 from pyktane.base import Frozen
 from pyktane.edgework import Count
 
@@ -40,6 +45,27 @@ class FactInfo(Frozen):
     value_schema: dict[str, Any]
 
 
+class ChangedAnswerInfo(Frozen):
+    """An earlier answer that's different now that a mistake was fixed.
+
+    The defuser may already have acted on `before`: tell them.
+
+    Attributes:
+        index: The report's position in `get_history`.
+        instance: The module it was for.
+        before: What was said at the time.
+        after: What it should have been.
+    """
+
+    index: int
+    instance: str
+    before: str
+    after: str
+
+
+type Changed = tuple[ChangedAnswerInfo, ...]
+
+
 class NeedsFact(Frozen):
     """The module can't be solved until the defuser answers a question.
 
@@ -57,11 +83,13 @@ class Answered(Frozen):
     Attributes:
         instruction: Read this to the defuser.
         details: The same answer, structured.
+        changed: For corrections, earlier answers that are now different.
     """
 
     status: Literal["answered"] = "answered"
     instruction: str
     details: dict[str, JsonValue]
+    changed: Changed = ()
 
 
 type SolveResult = Annotated[Answered | NeedsFact, Field(discriminator="status")]
@@ -120,7 +148,7 @@ class BombSummary(Frozen):
             the ones they need, but gathering the common ones up front
             saves round trips.
         strikes: Strikes so far.
-        modules: Modules added so far.
+        modules: Modules on the bomb.
         can_undo: Whether `undo` has anything to revert.
     """
 
@@ -129,6 +157,35 @@ class BombSummary(Frozen):
     strikes: Count
     modules: list[InstanceSummary]
     can_undo: bool
+
+
+class Updated(Frozen):
+    """The bomb after a change.
+
+    Attributes:
+        bomb: Everything known about it now.
+        changed: Earlier answers that are different because of the change.
+            Read each to the defuser: they may have acted on the old one.
+    """
+
+    bomb: BombSummary
+    changed: Changed = ()
+
+
+class HistoryItem(Frozen):
+    """One action in the bomb's history.
+
+    Attributes:
+        index: Pass it to `edit_history`.
+        summary: What happened, in words.
+        action: The action itself; `edit_history` accepts this shape.
+        answer: The instruction given, for module reports.
+    """
+
+    index: int
+    summary: str
+    action: Action
+    answer: str | None = None
 
 
 class Undone(Frozen):

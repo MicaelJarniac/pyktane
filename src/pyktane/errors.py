@@ -5,6 +5,8 @@ __all__: tuple[str, ...] = (
     "ModuleStateError",
     "NeedsInfo",
     "PyktaneError",
+    "RevisionError",
+    "UnknownActionError",
     "UnknownError",
     "UnknownFactError",
     "UnknownInstanceError",
@@ -14,6 +16,7 @@ __all__: tuple[str, ...] = (
 
 from typing import Any
 
+lazy from pyktane.actions import Action
 lazy from pyktane.facts import Fact
 
 
@@ -56,9 +59,33 @@ class UnknownInstanceError(UnknownError):
     """The session has no module instance with this ID."""
 
 
+class UnknownActionError(UnknownError):
+    """The session's history has no action at this index."""
+
+
 class ConflictError(PyktaneError):
     """Two definitions collide (packs, modules, facts or instance IDs)."""
 
 
 class ModuleStateError(PyktaneError):
     """The module cannot accept this input in its current state."""
+
+
+class RevisionError(PyktaneError):
+    """Editing the history would make a later action invalid.
+
+    Nothing is changed when this is raised.
+
+    Attributes:
+        index: Position of the action that would break, in the history as
+            it was before the edit.
+        action: That action.
+    """
+
+    def __init__(self, index: int, action: Action, cause: Exception) -> None:
+        """Explain which later action `cause` broke."""
+        super().__init__(
+            f"that edit would break action {index} ({action.describe()}): {cause}"
+        )
+        self.index = index
+        self.action = action

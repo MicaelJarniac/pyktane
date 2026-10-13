@@ -13,6 +13,8 @@ just names the module it documents.
 
 ::: pyktane.session
 
+::: pyktane.actions
+
 ## Bomb information
 
 ::: pyktane.context

@@ -134,7 +134,25 @@ bomb.set_fact("serial", "AB3CD4")
 bomb.solve(simon, {"flashes": ["red", "green"]}).instruction  # 'Press blue, yellow.'
 bomb.strike()  # Simon Says changes with strikes.
 bomb.solve(simon, {"flashes": ["red", "green"]}).instruction  # 'Press yellow, blue.'
-bomb.undo()  # Misreported? Take it back.
+```
+
+Mistakes can be fixed wherever they happened, not just undone:
+
+```python
+wires = bomb.add_module("Wires")
+bomb.solve(wires, {"wires": ["red"] * 6})
+bomb.correct(wires, {"wires": ["red"] * 5})  # "6 wires... wait, 5"
+
+bomb.set_fact("serial", "AB3CD5")  # Misheard? Fixed from the start.
+
+for entry in bomb.history:  # "That wasn't a strike": find it,
+    print(entry.describe())  # e.g. "3: strike"
+revision = bomb.remove_action(3)  # remove just that action,
+for change in revision.changed:  # and hear which answers were wrong.
+    print(change.instance, change.before.instruction, "->", change.after.instruction)
+    # Simon#1 Press yellow, blue. -> Press blue, yellow.
+
+bomb.undo()  # Every change, corrections included, can be undone.
 ```
 
 Supported modules so far: Wires, The Button, Simon Says and Memory.
@@ -166,7 +184,10 @@ to do.
 | `list_facts` / `set_facts` | What can be recorded about the bomb, and recording it |
 | `list_modules` / `describe_module` | Supported modules, and what to report for each |
 | `add_module` / `solve` | Add a module, then get the answer (or a question to ask first) |
-| `strike` / `mark_solved` / `undo` | Keep the bomb's state in sync |
+| `strike` / `mark_solved` | Keep the bomb's state in sync |
+| `solve` with `correction: true` | Replace a module's misread report |
+| `get_history` / `edit_history` | Find and fix any past mistake (a strike that wasn't one, ...) |
+| `forget_fact` / `remove_module` / `undo` | Take back facts, modules, or the latest change |
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

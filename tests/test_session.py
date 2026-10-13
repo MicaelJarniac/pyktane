@@ -6,6 +6,7 @@ from hypothesis import strategies as st
 from inline_snapshot import snapshot
 from pydantic import ValidationError
 
+from pyktane.actions import AddModule, MarkSolved, Solve
 from pyktane.base import Answer, Frozen
 from pyktane.errors import (
     ConflictError,
@@ -19,7 +20,7 @@ from pyktane.errors import (
 from pyktane.events import Event, ModuleSolved
 from pyktane.module import AnyModule, Module, NoState
 from pyktane.packs import Manual, Pack, PackRef, Ruleset
-from pyktane.session import BombState, Instance, SavedSession, Session
+from pyktane.session import BombState, SavedSession, Session
 from pyktane.vanilla import PACK as VANILLA
 from pyktane.vanilla.memory import MemoryState, Press
 from pyktane.vanilla.simon import SimonAnswer, SimonColor
@@ -128,7 +129,7 @@ def test_memory_state_is_per_instance_and_resets_on_its_strike(bomb: Session) ->
 def test_solving(bomb: Session) -> None:
     wires = bomb.add_module("Wires")
     bomb.mark_solved(wires)
-    assert bomb.state.solve_order == ("Wires",)
+    assert bomb.state.solve_order == ("Wires#1",)
     assert bomb.state.context.solved == ("Wires",)
     with pytest.raises(ModuleStateError):
         bomb.mark_solved(wires)
@@ -173,37 +174,43 @@ def played() -> Session:
 
 
 def test_save_format() -> None:
-    assert played().dump().model_dump(mode="json")["history"][-1] == snapshot(
-        {
-            "facts": {
-                "serial": "AB3CD5",
-                "batteries": 2,
-                "port_plates": [["Parallel", "Serial"]],
+    """Saves hold the actions, canonicalized: IDs resolved, values validated."""
+    saved = played().dump().model_dump(mode="json")
+    assert saved["format_version"] == 2
+    assert saved["actions"] == snapshot(
+        [
+            {
+                "kind": "set_facts",
+                "facts": {
+                    "serial": "AB3CD5",
+                    "batteries": 2,
+                    "port_plates": [["Parallel", "Serial"]],
+                },
             },
-            "strikes": 1,
-            "instances": [
-                {
-                    "id": "Memory#1",
-                    "module": "Memory",
-                    "state": {"history": [{"position": 3, "label": 2}]},
-                    "solved": False,
-                },
-                {
-                    "id": "Wires#1",
-                    "module": "Wires",
-                    "state": {},
-                    "solved": True,
-                },
-            ],
-            "solve_order": ["Wires"],
-        }
+            {"kind": "add_module", "instance": "Memory#1", "module": "Memory"},
+            {
+                "kind": "solve",
+                "instance": "Memory#1",
+                "data": {"display": 3, "labels": [4, 3, 2, 1]},
+            },
+            {"kind": "add_module", "instance": "Wires#1", "module": "Wires"},
+            {
+                "kind": "solve",
+                "instance": "Wires#1",
+                "data": {"wires": ["red", "blue", "red", "black"]},
+            },
+            {"kind": "mark_solved", "instance": "Wires#1"},
+            {"kind": "strike", "instance": None},
+        ]
     )
+    assert len(saved["undo"]) == 7
 
 
 def test_round_trip() -> None:
     bomb = played()
     restored = Session.from_json(bomb.to_json(), available=(VANILLA,))
     assert restored.history == bomb.history
+    assert restored.state == bomb.state
     assert restored.manual.ruleset == bomb.manual.ruleset
     # Undo history survives too.
     assert restored.undo()
@@ -219,12 +226,15 @@ def test_restore_needs_the_same_packs() -> None:
         Session.restore(elsewhere, available=(VANILLA,))
 
 
-def test_restore_validates_states_eagerly() -> None:
-    corrupt = BombState(
-        instances=(Instance(id="m", module="Memory", state={"history": "lol"}),)
+def test_restore_replays_and_validates_eagerly() -> None:
+    corrupt = (
+        AddModule(instance="m", module="Memory"),
+        Solve(instance="m", data={"display": 9, "labels": [1, 2, 3, 4]}),
     )
     with pytest.raises(ValidationError):
-        Session(Manual([VANILLA]), (corrupt,))
+        Session(Manual([VANILLA]), corrupt)
+    with pytest.raises(UnknownInstanceError):
+        Session(Manual([VANILLA]), (MarkSolved(instance="nope"),))
 
 
 def test_unknown_format_version_is_rejected() -> None:

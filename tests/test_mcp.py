@@ -19,6 +19,8 @@ from pyktane.vanilla import PACK
 
 pytestmark = pytest.mark.anyio
 
+STAGE = {"display": 1, "labels": [1, 2, 3, 4]}
+
 
 @pytest.fixture
 def anyio_backend() -> str:
@@ -47,11 +49,15 @@ async def test_lists_the_expected_tools(client: Client[Any]) -> None:
     assert set(tools) == {
         "add_module",
         "describe_module",
+        "edit_history",
+        "forget_fact",
         "get_bomb",
+        "get_history",
         "list_facts",
         "list_modules",
         "mark_solved",
         "new_bomb",
+        "remove_module",
         "set_facts",
         "solve",
         "strike",
@@ -85,14 +91,15 @@ async def test_a_round_with_a_question(client: Client[Any]) -> None:
         "status": "answered",
         "instruction": "Press blue, yellow.",
         "details": {"presses": ["blue", "yellow"]},
+        "changed": [],
     }
 
-    bomb = await call(client, "strike")
+    bomb = (await call(client, "strike"))["bomb"]
     assert bomb["strikes"] == 1
     answered = (await call(client, "solve", instance="Simon#1", data=data))["result"]
     assert answered["instruction"] == "Press yellow, blue."
 
-    bomb = await call(client, "mark_solved", instance="Simon#1")
+    bomb = (await call(client, "mark_solved", instance="Simon#1"))["bomb"]
     assert bomb["modules"][0]["solved"]
 
 
@@ -129,11 +136,13 @@ async def test_get_bomb_and_missing_facts(client: Client[Any]) -> None:
         "modules": [],
         "can_undo": False,
     }
-    bomb = await call(
-        client,
-        "set_facts",
-        facts={"batteries": 2, "port_plates": [["rj45", "parallel"], []]},
-    )
+    bomb = (
+        await call(
+            client,
+            "set_facts",
+            facts={"batteries": 2, "port_plates": [["rj45", "parallel"], []]},
+        )
+    )["bomb"]
     assert bomb["facts"] == {"batteries": 2, "port_plates": [["Parallel", "RJ-45"], []]}
     assert bomb["missing_facts"] == ["serial", "battery_holders", "indicators"]
     assert bomb["can_undo"]
@@ -239,3 +248,146 @@ def test_core_never_imports_fastmcp() -> None:
         "assert 'fastmcp' not in sys.modules and 'mcp' not in sys.modules"
     )
     subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603
+
+
+async def test_the_strike_that_wasnt(client: Client[Any]) -> None:
+    """Found via `get_history`, removed via `edit_history`; changed answers reported."""
+    await call(client, "set_facts", facts={"serial": "AE3CD5"})
+    await call(client, "add_module", module="Simon")
+    await call(client, "solve", instance="Simon#1", data={"flashes": ["red"]})
+    await call(client, "strike", instance="Simon#1")
+    await call(client, "solve", instance="Simon#1", data={"flashes": ["red", "blue"]})
+    await call(client, "mark_solved", instance="Simon#1")
+    await call(client, "add_module", module="Memory")
+    await call(client, "solve", instance="Memory#1", data=STAGE)
+
+    history = (await call(client, "get_history"))["result"]
+    strike = next(item for item in history if item["action"]["kind"] == "strike")
+    assert strike["summary"] == "strike on Simon#1"
+    assert history[2]["answer"] == "Press blue."
+
+    updated = await call(client, "edit_history", index=strike["index"])
+    assert updated["bomb"]["strikes"] == 0
+    assert updated["changed"] == [
+        {
+            "index": 3,
+            "instance": "Simon#1",
+            "before": "Press yellow, green.",
+            "after": "Press blue, red.",
+        }
+    ]
+    # Memory kept its stage; one undo brings the strike back.
+    answer = await call(client, "solve", instance="Memory#1", data=STAGE)
+    assert answer["result"]["details"]["stage"] == 2
+    await call(client, "undo")
+    assert (await call(client, "undo"))["bomb"]["strikes"] == 1
+
+
+async def test_misreported_module(client: Client[Any]) -> None:
+    await call(client, "set_facts", facts={"serial": "AB3CD5"})
+    await call(client, "add_module", module="Wires")
+    data = {"wires": ["red"] * 6}
+    await call(client, "solve", instance="Wires#1", data=data)
+    fixed = await call(
+        client,
+        "solve",
+        instance="Wires#1",
+        data={"wires": ["red"] * 5},
+        correction=True,
+    )
+    assert fixed["result"]["instruction"] == "Cut the 2nd wire (red)."
+    assert len((await call(client, "get_history"))["result"]) == 3
+
+    await call(client, "add_module", module="Memory")
+    await call(client, "solve", instance="Memory#1", data=STAGE)
+    fixed = await call(
+        client,
+        "solve",
+        instance="Memory#1",
+        data={"display": 3, "labels": [1, 2, 3, 4]},
+        correction=True,
+    )
+    assert fixed["result"]["details"]["stage"] == 1  # Still stage 1.
+
+
+async def test_correcting_a_fact(client: Client[Any]) -> None:
+    await call(client, "set_facts", facts={"serial": "AB3CD5"})
+    await call(client, "add_module", module="Wires")
+    data = {"wires": ["red", "blue", "red", "black"]}
+    await call(client, "solve", instance="Wires#1", data=data)
+    updated = await call(client, "set_facts", facts={"serial": "AB3CD4"})
+    (changed,) = updated["changed"]
+    assert changed["after"] == "Cut the 1st wire (red)."
+
+
+async def test_insert_and_replace_through_edit_history(client: Client[Any]) -> None:
+    await call(client, "add_module", module="Wires")
+    inserted = await call(
+        client, "edit_history", index=1, action={"kind": "strike"}, insert=True
+    )
+    assert inserted["bomb"]["strikes"] == 1
+    replaced = await call(
+        client,
+        "edit_history",
+        index=1,
+        action={"kind": "set_facts", "facts": {"batteries": 2}},
+    )
+    assert replaced["bomb"]["strikes"] == 0
+    assert replaced["bomb"]["facts"] == {"batteries": 2}
+
+
+async def test_forget_fact_and_remove_module(client: Client[Any]) -> None:
+    await call(client, "set_facts", facts={"batteries": 2})
+    assert (await call(client, "forget_fact", key="batteries"))["bomb"]["facts"] == {}
+    await call(client, "add_module", module="Wires")
+    updated = await call(client, "remove_module", instance="Wires#1")
+    assert updated["bomb"]["modules"] == []
+
+
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        ({"index": 0}, "would break action 1"),  # The report needs the module.
+        ({"index": 9}, "no action at 9"),
+        ({"index": 0, "insert": True}, "`insert` needs an `action`"),
+        # FastMCP validates arguments against the schema before calling us.
+        ({"index": 0, "action": {"kind": "explode"}}, "does not match any of"),
+        (
+            {
+                "index": 1,
+                "action": {
+                    "kind": "solve",
+                    "instance": "Wires#1",
+                    "data": {"wires": ["red", "red", "blue", "blue"]},
+                },
+            },
+            "Record it with `set_facts` first",
+        ),
+    ],
+)
+async def test_bad_history_edits_are_explained(
+    client: Client[Any], arguments: dict[str, Any], message: str
+) -> None:
+    await call(client, "add_module", module="Wires")
+    await call(client, "solve", instance="Wires#1", data={"wires": ["blue"] * 3})
+    history = (await call(client, "get_history"))["result"]
+    assert message in await error(client, "edit_history", **arguments)
+    assert (await call(client, "get_history"))["result"] == history
+
+
+async def test_correction_mistakes_are_explained(client: Client[Any]) -> None:
+    await call(client, "add_module", module="Wires")
+    message = await error(
+        client,
+        "solve",
+        instance="Wires#1",
+        data={"wires": ["blue"] * 3},
+        correction=True,
+    )
+    assert "nothing was reported for Wires#1 yet" in message
+    assert "fact 'serial' isn't recorded" in await error(
+        client, "forget_fact", key="serial"
+    )
+    assert "no module instance" in await error(
+        client, "remove_module", instance="Nope#1"
+    )

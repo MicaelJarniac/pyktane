@@ -30,7 +30,9 @@ src/pyktane/
   events.py     Strike, ModuleSolved (packs may add more)
   module.py     Module[I, O, S] / StatelessModule[I, O]
   packs.py      Pack, PackRef, Ruleset, Manual, entry-point discovery
-  session.py    Session: one bomb, snapshot history (undo), save/restore
+  actions.py    Action union (SetFacts, Solve, AddStrike, ...), Splice
+  session.py    Session: an action log, replayed into BombStates;
+                corrections, history edits, undo, save/restore
   vanilla/      Built-in pack, one file per module
   mcp/          Optional FastMCP server (`mcp` extra, `pyktane-mcp` script)
     _tools.py   Structured tool results (plain Pydantic, no FastMCP)
@@ -46,8 +48,27 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
 
 - **Solvers are pure.** `Module.step(data, state, ctx) -> (answer, new_state)`
   and `on_event(event, state, *, instance) -> state` never mutate anything.
-  All mutation lives in `Session`, which pushes a new immutable `BombState`
-  per change, so undo is a pop and saving is a dump.
+  That's what lets a session be just a log of actions: replaying it always
+  gives the same bomb.
+- **The action log is the truth; states are derived.** `Session` keeps the
+  actions plus the `BombState` and answer after each one. Every change is a
+  list of `Splice`s (edits to the log) applied by replaying from the edit
+  point, all or nothing, and stored for `undo` (which applies their
+  inverses). Never mutate `_states` directly: add an `Action` kind and
+  handle it in `Session._apply`. The fuzz test
+  `test_replaying_the_log_always_reproduces_the_state` checks
+  state == replay(log) after any mix of changes.
+- **Corrections, not just undo.** Misreported module: `correct()` replaces
+  its latest `Solve` (Memory stays on its stage). Wrong fact: `set_facts` on
+  a recorded key rewrites it where it was first recorded (edgework never
+  changes mid-game). Anything else: `replace_action` / `remove_action` /
+  `insert_action`. Each returns a `Revision` whose `changed` lists earlier
+  answers that came out differently; the defuser already acted on them, so
+  frontends must surface them. Edits that make a later action fail raise
+  `RevisionError` (indexed in the pre-edit history) and change nothing.
+- **Actions are stored canonically** (values validated, module names
+  resolved to IDs, instance IDs explicit), so replay never depends on lookups
+  or auto-numbering that could shift after an edit.
 - **Ask lazily.** Read facts with `ctx.get(FACT)` only on the branch of a rule
   that needs them, so the defuser is asked only what matters. Never pre-read
   facts "just in case"; tests assert e.g. that 3-wire Wires never needs the
@@ -71,8 +92,8 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
   installed module's state type with Hypothesis.
 - **Answers** subclass `Answer` and always fill `instruction` with a
   plain-English sentence for the defuser; structured fields come alongside.
-- **Failed operations change nothing.** `Session.solve` must stay retryable
-  after `NeedsInfo` or validation errors.
+- **Failed operations change nothing.** `Session.solve` (and every other
+  change) must stay retryable after `NeedsInfo` or validation errors.
 - **Multi-step modules take a union input.** If a module asks for different
   things at different times (The Button: the button, then the strip), make
   `input_type` a frozen `RootModel[StepA | StepB]` of `Frozen` models with
@@ -92,6 +113,10 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
 - **A small fixed set of generic tools**, not one per module: modded packs
   could add hundreds of modules. `describe_module` gives each module's input
   schema and `solve` takes `data` as a JSON object.
+- **Corrections are first-class tools.** `solve(correction=true)` for a
+  misread module, `set_facts` for a wrong fact, `get_history` +
+  `edit_history` for anything else. Results carry `changed`, and the
+  instructions tell the model to read those to the defuser at once.
 - **`NeedsInfo` is a result, not an error.** `solve` returns
   `{"status": "needs_fact", "fact": {...question, value_schema}}`, and the
   model asks the defuser. Errors are for mistakes: raise
@@ -240,5 +265,6 @@ Caveats:
 2. Remaining vanilla modules (Keypads, Who's on First, Morse, Complicated
    Wires, Wire Sequences, Mazes, Passwords) and needy modules.
 3. On-disk persistence (`platformdirs`, save/load/list, also as MCP tools).
-   The format already exists (`SavedSession`).
+   The format already exists (`SavedSession`, v2: the action log plus undo
+   splices).
 4. Prove the plugin path with an external modded pack.
