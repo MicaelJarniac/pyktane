@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.1.1 (2026-10-13)
+
+### Bug Fixes
+
+- Expose every input constraint in JSON schemas
+  ([`fcaa2ee`](https://github.com/MicaelJarniac/pyktane/commit/fcaa2ee449979a4076af5fe7d21f87a8fde9b0ba))
+
+
 ## v0.1.0 (2026-10-13)
 
 ### Chores
