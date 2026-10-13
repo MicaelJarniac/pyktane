@@ -92,8 +92,35 @@ def test_module_lookup_is_lenient(query: str) -> None:
 
 
 def test_unknown_module() -> None:
-    with pytest.raises(UnknownModuleError):
+    with pytest.raises(UnknownModuleError, match=r"'Forget Me Not'$"):
         Manual([VANILLA]).module("Forget Me Not")
+
+
+def test_unknown_module_suggests_close_names() -> None:
+    with pytest.raises(UnknownModuleError, match="did you mean 'Memory'"):
+        Manual([VANILLA]).module("memroy")
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("", ["Memory", "Simon Says", "The Button", "Wires"]),  # Everything.
+        ("simon", ["Simon Says"]),  # Substring of the name.
+        ("BIG", ["The Button"]),  # Substring of the ID (BigButton).
+        ("Wirez", ["Wires"]),  # Typo.
+        ("keypad", []),  # Nothing close.
+    ],
+)
+def test_search(query: str, expected: list[str]) -> None:
+    assert [module.name for module in Manual([VANILLA]).search(query)] == expected
+
+
+def test_search_ranks_and_limits() -> None:
+    manual = Manual([VANILLA, MODDED])
+    # "Two Bits" contains "bit"; "The Button" only resembles it.
+    names = [module.name for module in manual.search("bit")]
+    assert names[0] == "Two Bits"
+    assert len(manual.search("", limit=2)) == 2
 
 
 def test_facts() -> None:

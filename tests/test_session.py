@@ -69,6 +69,20 @@ def test_set_facts_validates_and_is_atomic(bomb: Session) -> None:
     assert bomb.state.facts == {"batteries": 2, "port_plates": [["RJ-45"]]}
 
 
+def test_missing_facts(bomb: Session) -> None:
+    keys = [fact.key for fact in bomb.missing_facts()]
+    assert keys == [
+        "serial",
+        "batteries",
+        "battery_holders",
+        "indicators",
+        "port_plates",
+    ]
+    bomb.set_facts(serial="AB3CD4", indicators=[])
+    keys = [fact.key for fact in bomb.missing_facts()]
+    assert keys == ["batteries", "battery_holders", "port_plates"]
+
+
 def test_forget_fact(bomb: Session) -> None:
     bomb.set_facts(serial="AB3CD4", batteries=1)
     bomb.forget_fact("serial")

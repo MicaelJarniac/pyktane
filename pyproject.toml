@@ -45,8 +45,18 @@ changelog = "https://github.com/MicaelJarniac/pyktane/blob/main/docs/CHANGELOG.m
 documentation = "https://pyktane.readthedocs.io"
 issues = "https://github.com/MicaelJarniac/pyktane/issues"
 
+[project.optional-dependencies]
+# The MCP server. Run it with `uvx --from 'pyktane[mcp]' pyktane-mcp`.
+mcp = [
+    "fastmcp>=4.1.0",
+]
+
+[project.scripts]
+pyktane-mcp = "pyktane.mcp:main"
+
 [dependency-groups]
 tests = [
+    "anyio>=4",
     "coverage>=7.6.11",
     "hypothesis>=6.125.3",
     "inline-snapshot>=0.20.2",
@@ -217,6 +227,9 @@ filterwarnings = [
   # pytest re-reports it as PytestUnraisableExceptionWarning.
   "error::ResourceWarning",
   "error::pytest.PytestUnraisableExceptionWarning",
+  # Upstream, in FastMCP's dependencies (beartype checking key-value's
+  # non-runtime-checkable protocol); nothing for us to fix.
+  "ignore:<class 'key_value.aio.protocols:DeprecationWarning:beartype",
 ]
 
 [tool.inline-snapshot]

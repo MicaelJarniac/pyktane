@@ -39,6 +39,14 @@ just names the module it documents.
 
 ::: pyktane.vanilla.wires
 
+::: pyktane.vanilla.button
+
 ::: pyktane.vanilla.simon
 
 ::: pyktane.vanilla.memory
+
+## MCP server
+
+::: pyktane.mcp
+
+::: pyktane.mcp._tools

@@ -32,11 +32,15 @@ src/pyktane/
   packs.py      Pack, PackRef, Ruleset, Manual, entry-point discovery
   session.py    Session: one bomb, snapshot history (undo), save/restore
   vanilla/      Built-in pack, one file per module
+  mcp/          Optional FastMCP server (`mcp` extra, `pyktane-mcp` script)
+    _tools.py   Structured tool results (plain Pydantic, no FastMCP)
+    _server.py  create_server(): tools + `defuse` prompt around one Session
 ```
 
 Layers depend downward only: **rules** (`vanilla/`, pure) → **session**
-(state, events, undo) → **frontends** (CLI/MCP, optional extras; not yet
-built). The core must never import a frontend dependency (`mcp`, etc.).
+(state, events, undo) → **frontends** (`mcp/`, optional extras). The core
+must never import a frontend dependency (`fastmcp`, `mcp`, ...);
+`test_core_never_imports_fastmcp` checks it in a subprocess.
 
 ### Design rules
 
@@ -69,6 +73,37 @@ built). The core must never import a frontend dependency (`mcp`, etc.).
   plain-English sentence for the defuser; structured fields come alongside.
 - **Failed operations change nothing.** `Session.solve` must stay retryable
   after `NeedsInfo` or validation errors.
+- **Multi-step modules take a union input.** If a module asks for different
+  things at different times (The Button: the button, then the strip), make
+  `input_type` a frozen `RootModel[StepA | StepB]` of `Frozen` models with
+  disjoint fields. `extra="forbid"` lets Pydantic tell them apart, and the
+  JSON schema shows clients both shapes.
+
+### MCP server
+
+- Built on **FastMCP 4** (`fastmcp>=4.1`, MCP SDK v2). Check its docs through
+  `ctx7` (`/websites/gofastmcp`) before using new APIs: v4 differs from older
+  examples (e.g. `ToolAnnotations(read_only_hint=...)` in snake_case,
+  `tool.output_schema`, stateless 2026-07-28 protocol).
+- **One bomb per server process**, held in a closure inside
+  `create_server()`. Don't use `ctx.get_state()` for it: on the stateless
+  protocol each request gets a fresh session, so that state doesn't survive
+  between calls without auth.
+- **A small fixed set of generic tools**, not one per module: modded packs
+  could add hundreds of modules. `describe_module` gives each module's input
+  schema and `solve` takes `data` as a JSON object.
+- **`NeedsInfo` is a result, not an error.** `solve` returns
+  `{"status": "needs_fact", "fact": {...question, value_schema}}`, and the
+  model asks the defuser. Errors are for mistakes: raise
+  `ToolError(..., log_level=logging.INFO)` with a short message that tells the
+  model how to fix the call (see `_tool_error`). Never leak Pydantic's raw
+  output with its URLs.
+- Every tool returns a typed model, so clients get `structuredContent` plus
+  an output schema. Set `ToolAnnotations` (read-only, destructive).
+- Test through `fastmcp.Client(server)` (in-memory, real protocol) with the
+  `anyio` pytest plugin (`pytestmark = pytest.mark.anyio`).
+- Logs go to stderr; stdout is the stdio transport. Never `print` in server
+  code.
 
 ### Adding a vanilla module
 
@@ -171,15 +206,17 @@ Caveats:
 - Pushing a `feat:`/`fix:` commit to `main` triggers semantic-release, which
   tags, publishes to PyPI and pushes a version commit, so pull before
   continuing.
+- Dependabot's "Graph Update" runs fail because it doesn't support Python
+  3.15 yet. That's expected and not a CI failure.
+- FastMCP's dependencies emit a beartype `DeprecationWarning` about
+  `key_value`'s protocols. It's filtered in `pyproject.toml`; if it ever
+  becomes an error upstream, bump FastMCP.
 
 ## Roadmap
 
-1. Optional MCP server (`pyktane[mcp]`, `pyktane-mcp` script) with a few
-   generic tools (`new_bomb`, `set_facts`, `strike`, `undo`, `get_state`,
-   `list_modules`, `describe_module`, `solve`). `NeedsInfo` becomes a
-   structured "ask the defuser X" result.
-2. Remaining vanilla modules (Button, Keypads, Who's on First, Morse,
-   Complicated Wires, Wire Sequences, Mazes, Passwords) and needy modules.
-3. On-disk persistence (`platformdirs`, save/load/list). The format already
-   exists (`SavedSession`).
+1. ~~Optional MCP server~~ (done: `pyktane[mcp]`).
+2. Remaining vanilla modules (Keypads, Who's on First, Morse, Complicated
+   Wires, Wire Sequences, Mazes, Passwords) and needy modules.
+3. On-disk persistence (`platformdirs`, save/load/list, also as MCP tools).
+   The format already exists (`SavedSession`).
 4. Prove the plugin path with an external modded pack.

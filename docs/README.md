@@ -78,7 +78,13 @@
 
 Welcome to **PyKTANE's** documentation!
 
-Python KTANE utilities.
+Solvers for [*Keep Talking and Nobody Explodes*](https://keeptalkinggame.com):
+you describe the bomb, **PyKTANE** reads the manual. It only asks for what a
+rule actually needs, tracks strikes and per-module state, supports undo, and
+can be extended with modded module packs.
+
+It also ships an optional [MCP](https://modelcontextprotocol.io) server, so an
+AI assistant can play the expert for you.
 
 [Read the Docs][docs]
 
@@ -96,6 +102,8 @@ pip install pyktane
 poetry add pyktane
 ```
 
+For the MCP server, add the `mcp` extra: `pyktane[mcp]`.
+
 ### GitHub
 You can also install the latest version of the code directly from GitHub:
 ```bash
@@ -110,9 +118,55 @@ poetry add git+git://github.com/MicaelJarniac/pyktane
 ## Usage
 For more examples, see the [full documentation][docs].
 
+### As a library
+
 ```python
-from pyktane import pyktane
+from pyktane import NeedsInfo, Session
+
+bomb = Session()
+simon = bomb.add_module("Simon Says")
+try:
+    bomb.solve(simon, {"flashes": ["red", "green"]})
+except NeedsInfo as missing:
+    print(missing.fact.question)  # What is the serial number?
+
+bomb.set_fact("serial", "AB3CD4")
+bomb.solve(simon, {"flashes": ["red", "green"]}).instruction  # 'Press blue, yellow.'
+bomb.strike()  # Simon Says changes with strikes.
+bomb.solve(simon, {"flashes": ["red", "green"]}).instruction  # 'Press yellow, blue.'
+bomb.undo()  # Misreported? Take it back.
 ```
+
+Supported modules so far: Wires, The Button, Simon Says and Memory.
+
+### With an AI assistant (MCP)
+
+Add this to your MCP client's configuration (Claude Desktop, Claude Code,
+Cursor, opencode...):
+
+```json
+{
+  "mcpServers": {
+    "pyktane": {
+      "command": "uvx",
+      "args": ["--from", "pyktane[mcp]", "pyktane-mcp"]
+    }
+  }
+}
+```
+
+Then ask your assistant to be the expert, or use the server's `defuse`
+prompt. It records the edgework, asks you what it needs, and tells you what
+to do.
+
+| Tool | What it does |
+|---|---|
+| `new_bomb` | Start a new round |
+| `get_bomb` | Facts, strikes and modules so far |
+| `list_facts` / `set_facts` | What can be recorded about the bomb, and recording it |
+| `list_modules` / `describe_module` | Supported modules, and what to report for each |
+| `add_module` / `solve` | Add a module, then get the answer (or a question to ask first) |
+| `strike` / `mark_solved` / `undo` | Keep the bomb's state in sync |
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

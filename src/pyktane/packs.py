@@ -26,6 +26,7 @@ __all__: tuple[str, ...] = (
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from importlib.metadata import entry_points
 from typing import Any, Final, Self
 
@@ -41,6 +42,9 @@ lazy from pyktane.facts import Fact
 lazy from pyktane.module import AnyModule
 
 ENTRY_POINT_GROUP: Final = "pyktane.packs"
+
+_MIN_SIMILARITY: Final = 0.6
+"""How close a misspelled module name must be to be suggested (0-1)."""
 
 
 @dataclass(frozen=True)
@@ -245,7 +249,38 @@ class Manual:
             if key in {normalize(module.id), normalize(module.name)}:
                 return module
         msg = f"no module matches {query!r}"
+        if similar := self.search(query, limit=3):
+            msg += "; did you mean " + " or ".join(repr(m.name) for m in similar) + "?"
         raise UnknownModuleError(msg)
+
+    def search(self, query: str = "", *, limit: int | None = None) -> list[AnyModule]:
+        """Find modules whose ID or name resembles `query`, best match first.
+
+        An empty query lists every module, sorted by name. Matching ignores
+        case and punctuation, and tolerates typos.
+
+        Example:
+            ``manual.search("simon")`` finds Simon Says, and
+            ``manual.search("memroy")`` still finds Memory.
+        """
+        modules = sorted(self.modules.values(), key=lambda module: module.name)
+        key = normalize(query)
+        if not key:
+            return modules[:limit]
+
+        def score(module: AnyModule) -> float:
+            names = {normalize(module.id), normalize(module.name)}
+            if any(key in name for name in names):
+                return 1.0
+            return max(SequenceMatcher(None, key, name).ratio() for name in names)
+
+        scored = [(score(module), module) for module in modules]
+        matches = [
+            module
+            for value, module in sorted(scored, key=lambda pair: -pair[0])
+            if value >= _MIN_SIMILARITY
+        ]
+        return matches[:limit]
 
     def fact(self, key: str) -> Fact[Any]:
         """Find a fact by key.

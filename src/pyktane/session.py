@@ -20,7 +20,7 @@ __all__: tuple[str, ...] = (
 from collections.abc import Mapping
 from typing import Any, Final, Literal, Self
 
-from pydantic import JsonValue
+from pydantic import BaseModel, JsonValue
 
 from pyktane.base import Answer, Frozen
 from pyktane.context import Context
@@ -28,6 +28,7 @@ from pyktane.edgework import Count
 from pyktane.errors import ConflictError, ModuleStateError, UnknownInstanceError
 from pyktane.events import Event, ModuleSolved, Strike
 from pyktane.packs import Manual, Pack, Ruleset
+lazy from pyktane.facts import Fact
 lazy from pyktane.module import AnyModule
 
 FORMAT_VERSION: Final = 1
@@ -153,6 +154,19 @@ class Session:
         self._history.pop()
         return True
 
+    def missing_facts(self) -> list[Fact[Any]]:
+        """Facts no one has provided yet, in the order the manual defines them.
+
+        Not every missing fact will be needed; solvers ask only for those
+        their rules use. This helps a frontend gather the usual edgework up
+        front to save round trips.
+        """
+        return [
+            fact
+            for key, fact in self.manual.facts.items()
+            if key not in self.state.facts
+        ]
+
     # Facts
 
     def set_fact(self, key: str, value: Any) -> None:  # noqa: ANN401 - user input
@@ -232,7 +246,7 @@ class Session:
         instances = tuple(i for i in self.state.instances if i.id != instance_id)
         self._push(self.state.model_copy(update={"instances": instances}))
 
-    def solve(self, instance_id: str, data: Mapping[str, Any] | Frozen) -> Answer:
+    def solve(self, instance_id: str, data: Mapping[str, Any] | BaseModel) -> Answer:
         """Feed an input to a module and return the expert's answer.
 
         Nothing changes if this raises, so it is safe to retry after

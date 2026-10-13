@@ -5,6 +5,8 @@ __all__: tuple[str, ...] = ("AnyModule", "Module", "NoState", "StatelessModule")
 from abc import ABC, abstractmethod
 from typing import Any
 
+from pydantic import BaseModel
+
 from pyktane.base import Answer, Frozen
 lazy from pyktane.context import Context
 lazy from pyktane.events import Event
@@ -14,7 +16,7 @@ class NoState(Frozen):
     """State of a module that remembers nothing between inputs."""
 
 
-class Module[I: Frozen, O: Answer, S: Frozen](ABC):
+class Module[I: BaseModel, O: Answer, S: Frozen](ABC):
     """Solver for one kind of module.
 
     Solvers are pure: `step` takes the module's current state and returns the
@@ -28,7 +30,9 @@ class Module[I: Frozen, O: Answer, S: Frozen](ABC):
             Manual Pages (https://ktane.timwi.de) so modded packs can't clash.
         name: Human-readable name, as printed on the manual page.
         guide: Tells the defuser (or an AI) what to read off the module.
-        input_type: What the defuser reports.
+        input_type: What the defuser reports. Usually a `Frozen` model; a
+            frozen `RootModel` over a union works for modules with several
+            kinds of input (see The Button).
         output_type: What the expert answers.
         state_type: What the module remembers between inputs.
     """
@@ -71,7 +75,7 @@ class Module[I: Frozen, O: Answer, S: Frozen](ABC):
         return f"<Module {self.id}>"
 
 
-class StatelessModule[I: Frozen, O: Answer](Module[I, O, NoState]):
+class StatelessModule[I: BaseModel, O: Answer](Module[I, O, NoState]):
     """A module whose answer depends only on its input and the bomb."""
 
     state_type = NoState

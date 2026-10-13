@@ -9,6 +9,7 @@ __all__: tuple[str, ...] = ("PACK",)
 from typing import Final
 
 from pyktane.packs import Pack
+from pyktane.vanilla.button import Button
 from pyktane.vanilla.memory import Memory
 from pyktane.vanilla.simon import SimonSays
 from pyktane.vanilla.wires import Wires
@@ -17,5 +18,5 @@ PACK: Final = Pack(
     id="vanilla",
     version="1",
     name="Keep Talking and Nobody Explodes (manual v1)",
-    modules=(Wires(), SimonSays(), Memory()),
+    modules=(Wires(), Button(), SimonSays(), Memory()),
 )
