@@ -24,7 +24,13 @@ classifiers = [
 requires-python = ">=3.15"  # py_ver
 dependencies = [
     "loguru>=0.7.3",
+    "pydantic>=2.14.1",
 ]
+
+[project.entry-points."pyktane.packs"]
+# Module packs are discovered through this entry point group. Vanilla
+# registers itself the same way a third-party (modded) pack would.
+vanilla = "pyktane.vanilla:PACK"
 
 [build-system]
 requires = ["hatchling"]
@@ -111,10 +117,15 @@ unfixable = ["ERA001"]
 [tool.ruff.lint.per-file-ignores]
 # S101: asserts are the point. PLR2004: magic numbers are fixture data.
 # S106/S107: "tokens" here are literal test fixtures, not credentials.
-"tests/*" = ["S101", "PLR2004", "S106", "S107"]
+# D1: test names say what they check; docstrings are for when they can't.
+"tests/*" = ["S101", "PLR2004", "S106", "S107", "D1"]
 
 [tool.ruff.lint.flake8-builtins]
 builtins-ignorelist = ["id", "type"]
+
+[tool.ruff.lint.flake8-type-checking]
+# Pydantic resolves annotations at runtime, so their imports must stay real.
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "pyktane.base.Frozen"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -129,10 +140,16 @@ enable_error_code = [
   "ignore-without-code"
 ]
 strict = true
+plugins = ["pydantic.mypy"]
 warn_unused_ignores = false  # true
 show_column_numbers = true
 # show_error_context = true
 # pretty = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
@@ -188,6 +205,9 @@ show_missing = true
 
 [tool.pytest.ini_options]
 # addopts = "--cov"
+# Docstring examples are part of the docs; keep them running.
+addopts = "--doctest-modules"
+testpaths = ["tests", "src"]
 filterwarnings = [
   # Unclosed resources (files, sockets, database connections) left to the
   # garbage collector surface as a ResourceWarning at finalization. Both lines

@@ -1137,6 +1137,7 @@ version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "loguru" },
+    { name = "pydantic" },
 ]
 
 [package.dev-dependencies]
@@ -1202,7 +1203,10 @@ typing = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "loguru", specifier = ">=0.7.3" }]
+requires-dist = [
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "pydantic", specifier = ">=2.14.1" },
+]
 
 [package.metadata.requires-dev]
 automation = [{ name = "nox", extras = ["uv"], specifier = ">=2026.2.9" }]
