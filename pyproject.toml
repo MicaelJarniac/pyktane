@@ -23,6 +23,7 @@ classifiers = [
 
 requires-python = ">=3.15"  # py_ver
 dependencies = [
+    "annotated-types>=0.8.0",
     "loguru>=0.7.3",
     "pydantic>=2.14.1",
 ]

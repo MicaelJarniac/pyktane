@@ -4,6 +4,8 @@ Events are delivered to every module instance on the bomb. Packs can define
 their own by subclassing `Event`.
 """
 
+__all__: tuple[str, ...] = ("Event", "ModuleSolved", "Strike")
+
 from pyktane.base import Frozen
 
 

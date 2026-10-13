@@ -1,10 +1,13 @@
 """The read-only view of the bomb that solvers work with."""
 
+__all__: tuple[str, ...] = ("Context",)
+
 from collections.abc import Mapping
 
-from pydantic import JsonValue, NonNegativeInt
+from pydantic import JsonValue
 
 from pyktane.base import Frozen
+from pyktane.edgework import Count
 from pyktane.errors import NeedsInfo
 lazy from pyktane.facts import Fact
 
@@ -23,7 +26,7 @@ class Context(Frozen):
     """
 
     facts: Mapping[str, JsonValue] = {}
-    strikes: NonNegativeInt = 0
+    strikes: Count = 0
     solved: tuple[str, ...] = ()
 
     def get[T](self, fact: Fact[T]) -> T:

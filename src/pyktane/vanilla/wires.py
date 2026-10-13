@@ -1,8 +1,17 @@
 """On the Subject of Wires."""
 
+__all__: tuple[str, ...] = (
+    "MAX_WIRES",
+    "MIN_WIRES",
+    "WireColor",
+    "Wires",
+    "WiresAnswer",
+    "WiresInput",
+)
+
 from typing import Annotated, Final
 
-from pydantic import Field
+from annotated_types import Interval, Len
 
 from pyktane.base import Answer, Frozen, LenientStrEnum, ordinal
 from pyktane.edgework import SERIAL, last_digit
@@ -26,9 +35,7 @@ class WireColor(LenientStrEnum):
 class WiresInput(Frozen):
     """The wires, top to bottom, skipping empty slots."""
 
-    wires: Annotated[
-        tuple[WireColor, ...], Field(min_length=MIN_WIRES, max_length=MAX_WIRES)
-    ]
+    wires: Annotated[tuple[WireColor, ...], Len(MIN_WIRES, MAX_WIRES)]
 
 
 class WiresAnswer(Answer):
@@ -38,7 +45,7 @@ class WiresAnswer(Answer):
         cut: 1-based position among the present wires, from the top.
     """
 
-    cut: int
+    cut: Annotated[int, Interval(ge=1, le=MAX_WIRES)]
 
 
 class Wires(StatelessModule[WiresInput, WiresAnswer]):

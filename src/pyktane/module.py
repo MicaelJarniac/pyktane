@@ -1,5 +1,7 @@
 """The interface every module solver implements."""
 
+__all__: tuple[str, ...] = ("AnyModule", "Module", "NoState", "StatelessModule")
+
 from abc import ABC, abstractmethod
 from typing import Any
 

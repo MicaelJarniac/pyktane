@@ -9,13 +9,22 @@ every use. That keeps `BombState` independent of which packs are installed,
 and it guarantees from day one that every module's state round-trips.
 """
 
+__all__: tuple[str, ...] = (
+    "FORMAT_VERSION",
+    "BombState",
+    "Instance",
+    "SavedSession",
+    "Session",
+)
+
 from collections.abc import Mapping
 from typing import Any, Final, Literal, Self
 
-from pydantic import JsonValue, NonNegativeInt
+from pydantic import JsonValue
 
 from pyktane.base import Answer, Frozen
 from pyktane.context import Context
+from pyktane.edgework import Count
 from pyktane.errors import ConflictError, ModuleStateError, UnknownInstanceError
 from pyktane.events import Event, ModuleSolved, Strike
 from pyktane.packs import Manual, Pack, Ruleset
@@ -51,7 +60,7 @@ class BombState(Frozen):
     """
 
     facts: Mapping[str, JsonValue] = {}
-    strikes: NonNegativeInt = 0
+    strikes: Count = 0
     instances: tuple[Instance, ...] = ()
     solve_order: tuple[str, ...] = ()
 

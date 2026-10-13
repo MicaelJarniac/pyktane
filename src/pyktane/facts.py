@@ -6,11 +6,12 @@ pack wants to add. Core edgework facts live in `pyktane.edgework`; packs can
 define their own by creating more `Fact` instances.
 """
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+__all__: tuple[str, ...] = ("Fact",)
 
-if TYPE_CHECKING:
-    from pydantic import JsonValue, TypeAdapter
+from dataclasses import dataclass, field
+from typing import Any
+
+lazy from pydantic import JsonValue, TypeAdapter
 
 
 @dataclass(frozen=True, eq=False)

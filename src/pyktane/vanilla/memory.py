@@ -1,8 +1,21 @@
 """On the Subject of Memory."""
 
+__all__: tuple[str, ...] = (
+    "POSITIONS",
+    "RULES",
+    "STAGES",
+    "Digit",
+    "Memory",
+    "MemoryAnswer",
+    "MemoryInput",
+    "MemoryState",
+    "Press",
+)
+
 from collections.abc import Callable, Mapping
 from typing import Annotated, Final, Literal
 
+from annotated_types import Interval, Len, MaxLen
 from pydantic import AfterValidator
 
 from pyktane.base import Answer, Frozen, ordinal
@@ -33,7 +46,11 @@ class MemoryInput(Frozen):
     """
 
     display: Digit
-    labels: Annotated[tuple[Digit, ...], AfterValidator(_is_permutation)]
+    labels: Annotated[
+        tuple[Digit, ...],
+        Len(len(POSITIONS), len(POSITIONS)),
+        AfterValidator(_is_permutation),
+    ]
 
 
 class Press(Frozen):
@@ -56,14 +73,14 @@ class MemoryAnswer(Answer):
         press: The button to press.
     """
 
-    stage: int
+    stage: Annotated[int, Interval(ge=1, le=STAGES)]
     press: Press
 
 
 class MemoryState(Frozen):
     """Presses made in previous stages, oldest first."""
 
-    history: tuple[Press, ...] = ()
+    history: Annotated[tuple[Press, ...], MaxLen(STAGES)] = ()
 
 
 # A rule picks a button from (labels, history).

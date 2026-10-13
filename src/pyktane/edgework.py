@@ -4,15 +4,38 @@ These are core facts rather than vanilla-pack facts because almost every
 module (vanilla or modded) reads them.
 """
 
+__all__: tuple[str, ...] = (
+    "BATTERIES",
+    "BATTERY_HOLDERS",
+    "EDGEWORK_FACTS",
+    "INDICATORS",
+    "PORT_PLATES",
+    "SERIAL",
+    "SERIAL_LENGTH",
+    "VOWELS",
+    "Count",
+    "Edgework",
+    "Indicator",
+    "IndicatorLabel",
+    "Port",
+    "PortPlate",
+    "SerialNumber",
+    "count_ports",
+    "has_vowel",
+    "is_lit",
+    "is_unlit",
+    "last_digit",
+)
+
 from typing import Annotated, Any, Final
 
+from annotated_types import Ge, Len
 from pydantic import (
     AfterValidator,
     BeforeValidator,
-    Field,
     JsonValue,
-    NonNegativeInt,
     PlainSerializer,
+    StringConstraints,
     TypeAdapter,
 )
 
@@ -21,6 +44,9 @@ from pyktane.facts import Fact
 
 SERIAL_LENGTH: Final = 6
 VOWELS: Final = frozenset("AEIOU")
+
+type Count = Annotated[int, Ge(0)]
+"""A number of things on the bomb: zero or more."""
 
 
 def _clean_serial(value: object) -> object:
@@ -38,9 +64,14 @@ def _check_serial(value: str) -> str:
 
 type SerialNumber = Annotated[
     str,
-    BeforeValidator(_clean_serial),
-    Field(pattern=r"^[A-Z0-9]+$", min_length=SERIAL_LENGTH, max_length=SERIAL_LENGTH),
+    # Constraints must come before any validator: Pydantic drops constraints
+    # that follow a validator from the JSON schema (they still validate).
+    Len(SERIAL_LENGTH, SERIAL_LENGTH),
+    # annotated-types has no regex constraint; this is Pydantic's equivalent.
+    StringConstraints(pattern=r"^[A-Z0-9]+$"),
     AfterValidator(_check_serial),
+    # Before-validators run first regardless of where they are listed.
+    BeforeValidator(_clean_serial),
 ]
 """Six uppercase letters/digits; whitespace and case are normalized."""
 
@@ -114,16 +145,16 @@ SERIAL: Final = Fact[SerialNumber](
     question="What is the serial number?",
     adapter=TypeAdapter(SerialNumber),
 )
-BATTERIES: Final = Fact[NonNegativeInt](
+BATTERIES: Final = Fact[Count](
     key="batteries",
     question="How many batteries are on the bomb?",
-    adapter=TypeAdapter(NonNegativeInt),
+    adapter=TypeAdapter(Count),
     description="Count batteries, not holders: a holder of two AAs counts as two.",
 )
-BATTERY_HOLDERS: Final = Fact[NonNegativeInt](
+BATTERY_HOLDERS: Final = Fact[Count](
     key="battery_holders",
     question="How many battery holders are on the bomb?",
-    adapter=TypeAdapter(NonNegativeInt),
+    adapter=TypeAdapter(Count),
 )
 INDICATORS: Final = Fact[tuple[Indicator, ...]](
     key="indicators",
@@ -153,8 +184,8 @@ class Edgework(Frozen):
     """
 
     serial: SerialNumber | None = None
-    batteries: NonNegativeInt | None = None
-    battery_holders: NonNegativeInt | None = None
+    batteries: Count | None = None
+    battery_holders: Count | None = None
     indicators: tuple[Indicator, ...] | None = None
     port_plates: tuple[PortPlate, ...] | None = None
 

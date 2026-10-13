@@ -15,6 +15,15 @@ can register ``vanilla`` version ``1`` and ``2`` side by side, and a ruleset
 picks one.
 """
 
+__all__: tuple[str, ...] = (
+    "ENTRY_POINT_GROUP",
+    "Manual",
+    "Pack",
+    "PackRef",
+    "Ruleset",
+    "installed_packs",
+)
+
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from importlib.metadata import entry_points

@@ -4,6 +4,8 @@ This pack is registered through the ``pyktane.packs`` entry point, exactly
 like a third-party pack.
 """
 
+__all__: tuple[str, ...] = ("PACK",)
+
 from typing import Final
 
 from pyktane.packs import Pack

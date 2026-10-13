@@ -1,9 +1,19 @@
 """On the Subject of Simon Says."""
 
+__all__: tuple[str, ...] = (
+    "MAX_FLASHES",
+    "WITHOUT_VOWEL",
+    "WITH_VOWEL",
+    "SimonAnswer",
+    "SimonColor",
+    "SimonInput",
+    "SimonSays",
+)
+
 from collections.abc import Mapping
 from typing import Annotated, Final
 
-from pydantic import Field
+from annotated_types import Len
 
 from pyktane.base import Answer, Frozen, LenientStrEnum
 from pyktane.edgework import SERIAL, has_vowel
@@ -22,29 +32,27 @@ class SimonColor(LenientStrEnum):
     YELLOW = "yellow"
 
 
-R, B, G, Y = SimonColor.RED, SimonColor.BLUE, SimonColor.GREEN, SimonColor.YELLOW
+_R, _B, _G, _Y = SimonColor.RED, SimonColor.BLUE, SimonColor.GREEN, SimonColor.YELLOW
 
 type _Table = tuple[Mapping[SimonColor, SimonColor], ...]
 
 # Indexed by strike count (capped at 2), mapping flash -> button to press.
 WITH_VOWEL: Final[_Table] = (
-    {R: B, B: R, G: Y, Y: G},
-    {R: Y, B: G, G: B, Y: R},
-    {R: G, B: R, G: Y, Y: B},
+    {_R: _B, _B: _R, _G: _Y, _Y: _G},
+    {_R: _Y, _B: _G, _G: _B, _Y: _R},
+    {_R: _G, _B: _R, _G: _Y, _Y: _B},
 )
 WITHOUT_VOWEL: Final[_Table] = (
-    {R: B, B: Y, G: G, Y: R},
-    {R: R, B: B, G: Y, Y: G},
-    {R: Y, B: G, G: B, Y: R},
+    {_R: _B, _B: _Y, _G: _G, _Y: _R},
+    {_R: _R, _B: _B, _G: _Y, _Y: _G},
+    {_R: _Y, _B: _G, _G: _B, _Y: _R},
 )
 
 
 class SimonInput(Frozen):
     """Every color flashed so far, in order."""
 
-    flashes: Annotated[
-        tuple[SimonColor, ...], Field(min_length=1, max_length=MAX_FLASHES)
-    ]
+    flashes: Annotated[tuple[SimonColor, ...], Len(1, MAX_FLASHES)]
 
 
 class SimonAnswer(Answer):

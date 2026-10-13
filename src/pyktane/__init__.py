@@ -19,13 +19,7 @@ Example:
     'Press yellow, blue.'
 """
 
-from pyktane.base import Answer
-from pyktane.context import Context
-from pyktane.errors import NeedsInfo, PyktaneError
-from pyktane.packs import Manual, Pack, Ruleset
-from pyktane.session import Session
-
-__all__ = [
+__all__: tuple[str, ...] = (
     "Answer",
     "Context",
     "Manual",
@@ -34,4 +28,10 @@ __all__ = [
     "PyktaneError",
     "Ruleset",
     "Session",
-]
+)
+
+from pyktane.base import Answer
+from pyktane.context import Context
+from pyktane.errors import NeedsInfo, PyktaneError
+from pyktane.packs import Manual, Pack, Ruleset
+from pyktane.session import Session

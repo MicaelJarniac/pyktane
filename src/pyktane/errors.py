@@ -1,11 +1,20 @@
 """Exceptions raised by pyktane."""
 
-from __future__ import annotations
+__all__: tuple[str, ...] = (
+    "ConflictError",
+    "ModuleStateError",
+    "NeedsInfo",
+    "PyktaneError",
+    "UnknownError",
+    "UnknownFactError",
+    "UnknownInstanceError",
+    "UnknownModuleError",
+    "UnknownPackError",
+)
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from pyktane.facts import Fact
+lazy from pyktane.facts import Fact
 
 
 class PyktaneError(Exception):

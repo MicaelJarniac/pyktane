@@ -1136,6 +1136,7 @@ name = "pyktane"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "annotated-types" },
     { name = "loguru" },
     { name = "pydantic" },
 ]
@@ -1204,6 +1205,7 @@ typing = [
 
 [package.metadata]
 requires-dist = [
+    { name = "annotated-types", specifier = ">=0.8.0" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "pydantic", specifier = ">=2.14.1" },
 ]

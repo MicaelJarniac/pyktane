@@ -39,6 +39,19 @@ def test_serial_rejects_invalid(raw: object) -> None:
         SERIAL.validate(raw)
 
 
+def test_serial_schema_keeps_every_constraint() -> None:
+    """Constraints listed after a validator vanish from the JSON schema.
+
+    MCP clients only see the schema, so all of them must make it there.
+    """
+    assert SERIAL.adapter.json_schema() == {
+        "type": "string",
+        "minLength": 6,
+        "maxLength": 6,
+        "pattern": "^[A-Z0-9]+$",
+    }
+
+
 def test_serial_helpers() -> None:
     assert last_digit("A1B2CD") == 2
     assert has_vowel("EXY123")
