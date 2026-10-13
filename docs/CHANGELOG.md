@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.2.0 (2026-10-13)
+
+### Features
+
+- Add The Button and an optional MCP server
+  ([`a836997`](https://github.com/MicaelJarniac/pyktane/commit/a8369971b496fe6d1cd9bf81ad60475e019d2b98))
+
+
 ## v0.1.1 (2026-10-13)
 
 ### Bug Fixes
