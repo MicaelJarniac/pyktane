@@ -103,6 +103,8 @@ ignore = [
   "D213",
   "COM812",
   "ISC001",
+  # Per-file copyright headers: the top-level LICENSE covers the project.
+  "CPY001",
 ]
 unfixable = ["ERA001"]
 
