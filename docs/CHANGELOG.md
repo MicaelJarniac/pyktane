@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v0.3.0 (2026-10-13)
+
+### Documentation
+
+- Record and verify the manual source for every module
+  ([`4bb9446`](https://github.com/MicaelJarniac/pyktane/commit/4bb944642cd28823d0e01f04f5b48032f2a96ae1))
+
+### Features
+
+- Fix any past mistake by replaying an action log
+  ([`f57a706`](https://github.com/MicaelJarniac/pyktane/commit/f57a706253f7b9121b3ff8aa77489815e5f2d8ac))
+
+### Breaking Changes
+
+- Saves use format_version 2 (the action log plus undo splices); version 1 saves no longer load.
+  `Session(manual, actions)` takes actions instead of snapshots, `Session.history` returns
+  HistoryEntry items, changing methods return a Revision, `BombState.solve_order` holds instance
+  IDs, and the MCP `set_facts`/`strike`/`mark_solved` tools return `{bomb, changed}` instead of the
+  bare bomb summary.
+
+
 ## v0.2.0 (2026-10-13)
 
 ### Features
