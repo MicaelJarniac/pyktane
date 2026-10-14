@@ -17,9 +17,9 @@ from pydantic import BaseModel, ConfigDict
 class Frozen(BaseModel):
     """Immutable model that rejects unknown fields.
 
-    Everything that describes a bomb (inputs, outputs, module state, sessions)
-    derives from this, so it can be snapshotted for undo and serialized to JSON
-    without any extra work.
+    Everything that describes a bomb (inputs, outputs, module state, actions,
+    saved sessions) derives from this, so it can be stored in the action log,
+    compared on replay and serialized to JSON without any extra work.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

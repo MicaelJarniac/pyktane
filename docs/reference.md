@@ -34,6 +34,9 @@
       - Plugins
         - [pytest-cov][pytest-cov]
         - [pytest-benchmark][pytest-benchmark]
+        - [AnyIO][anyio] (async MCP tests)
+    - [Hypothesis][hypothesis]
+    - [inline-snapshot][inline-snapshot]
     - [airspeed velocity (`asv`)][asv]
     - [Coverage.py][coveragepy] <sup>[config][pyproject_toml]</sup>
   - Documenting
@@ -92,6 +95,9 @@
 [pytest]: https://github.com/pytest-dev/pytest
 [pytest-cov]: https://github.com/pytest-dev/pytest-cov
 [pytest-benchmark]: https://github.com/ionelmc/pytest-benchmark
+[anyio]: https://github.com/agronholm/anyio
+[hypothesis]: https://github.com/HypothesisWorks/hypothesis
+[inline-snapshot]: https://github.com/15r10nk/inline-snapshot
 [asv]: https://github.com/airspeed-velocity/asv
 [coveragepy]: https://github.com/nedbat/coveragepy
 [nox]: https://github.com/wntrblm/nox

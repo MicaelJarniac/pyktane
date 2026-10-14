@@ -10,7 +10,9 @@ As a contributor, here are the guidelines we would like you to follow:
 - [Coding rules](#coding-rules)
 - [Working with the code](#working-with-the-code)
 
-Read the [reference](reference.md).
+Read the [reference](reference.md), and
+[`AGENTS.md`](https://github.com/MicaelJarniac/pyktane/blob/main/AGENTS.md) for
+the architecture, design rules and code conventions.
 
 We also recommend that you read [How to Contribute to Open Source](https://opensource.guide/how-to-contribute).
 
@@ -239,11 +241,21 @@ This repository uses [Ruff](https://docs.astral.sh/ruff) for linting and formatt
 
 This repository uses [pytest](https://docs.pytest.org) for writing and running tests.
 
-Before pushing your code changes make sure all **tests pass** and the **coverage is 100%**:
+Before pushing your code changes make sure all **tests pass** and the **coverage is 100%** (line and branch). Docstring examples run as doctests too:
 
 ```bash
-pytest --cov
+uv run pytest --cov
 ```
+
+### Type checking
+
+This repository uses [mypy](https://mypy-lang.org) in strict mode, with the Pydantic plugin:
+
+```bash
+uv run mypy
+```
+
+Or run every check like CI does with `nox`.
 
 ### Docs
 

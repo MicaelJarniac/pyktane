@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Guidance for AI agents (and humans) working on **PyKTANE**: Python utilities
-for *Keep Talking and Nobody Explodes*, with an optional MCP server planned.
+for *Keep Talking and Nobody Explodes*, with an optional MCP server.
 General contribution rules (commit format, docs style) live in
 [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md); this file covers what isn't
 obvious from the code.
@@ -24,8 +24,10 @@ All of these must pass before committing. Python is **3.15** (`.python-version`)
 ```
 src/pyktane/
   base.py       Frozen (base model), Answer, LenientStrEnum, helpers
+  errors.py     PyktaneError tree: NeedsInfo, Unknown*Error, RevisionError, ...
   facts.py      Fact[T]: a typed, pack-extensible piece of bomb info
-  edgework.py   Core facts (serial, batteries, indicators, ports) + helpers
+  edgework.py   Core facts (serial, batteries, holders, indicators, ports,
+                derived has_parallel_port) + helpers
   context.py    Context: what solvers see; ctx.get(fact) raises NeedsInfo
   events.py     Strike, ModuleSolved (packs may add more)
   module.py     Module[I, O, S] / StatelessModule[I, O]
@@ -33,9 +35,11 @@ src/pyktane/
   actions.py    Action union (SetFacts, Solve, AddStrike, ...), Splice
   session.py    Session: an action log, replayed into BombStates;
                 corrections, history edits, undo, save/restore
-  vanilla/      Built-in pack, one file per module
+  vanilla/      Built-in pack, one file per module (needy.py holds all three)
+    _manual.py  Manual version, verification code, section_url()
   mcp/          Optional FastMCP server (`mcp` extra, `pyktane-mcp` script)
     _tools.py   Structured tool results (plain Pydantic, no FastMCP)
+    _schema.py  compact(): smaller JSON Schemas for models
     _server.py  create_server(): tools + `defuse` prompt around one Session
 ```
 
@@ -87,7 +91,8 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
 - **Facts can be derived.** `HAS_PARALLEL_PORT` is answered by
   `port_plates` when known, and asked as a quick yes/no otherwise. Prefer a
   narrow derived fact over asking for a whole structure when a rule only
-  needs one bit of it.
+  needs one bit of it. `Session.missing_facts()` (and so the MCP
+  `missing_facts`) leaves derived facts out: they're asked only when needed.
 - **Manual versions are pack versions.** A rules change means a new pack
   version (a new `Pack` with a bumped `version`, sharing helpers), never
   `if version == ...` branches inside solvers. Refactors that don't change
@@ -131,12 +136,15 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
   answer part of a module raises `NeedsInfo(*facts, partial=answer)`
   (Complicated Wires does), so the defuser isn't left waiting on a question
   while the clock runs. Check several facts with `ctx.has()` before asking.
+  The exception is `edit_history`: there, a missing fact is a `ToolError`
+  telling the model to `set_facts` first and retry the edit.
 - **Built for voice, where every token is latency.** Writes return a short
-  `{done, strikes, unsolved, changed}` (not the whole bomb: that's
-  `get_bomb`); `add_module` returns the module's `guide` and `examples` so
-  `describe_module` is rarely needed; schemas go through `compact()` (no
-  titles, `$ref`s or docstring sections). Lessons from real voice play are
-  in `playground/` (git-ignored). Errors are for mistakes: raise
+  `{done, strikes, unsolved, changed}` (`undo`: `{undone, strikes,
+  unsolved}`), not the whole bomb: that's `get_bomb`; `add_module` returns
+  the module's `guide` and `examples` so `describe_module` is rarely needed;
+  schemas go through `compact()` (no titles, `$ref`s or docstring
+  sections). Lessons from real voice play are in `playground/`
+  (git-ignored). Errors are for mistakes: raise
   `ToolError(..., log_level=logging.INFO)` with a short message that tells the
   model how to fix the call (see `_tool_error`). Never leak Pydantic's raw
   output with its URLs.
@@ -170,8 +178,11 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
   rule table with the solvers' constants: keypad columns, Who's on First,
   Morse words and chart, Complicated Wires (from the Venn diagram's
   geometry), Wire Sequences, mazes, passwords, knob patterns and Simon Says.
-  Rule sentences (Wires, The Button, Memory) were compared word for word on
-  2026-10-13. To check a new manual, replace those files and run the tests.
+  It also checks the manual's version and verification code, that every
+  module's `manual_url` anchor exists, and the needy instructions (Venting
+  Gas, Capacitor Discharge). Rule sentences (Wires, The Button, Memory) were
+  compared word for word on 2026-10-13. To check a new manual, replace those
+  files and run the tests.
 - Keypad symbols are pictures. They're named after the manual's image files
   and accept Unicode look-alikes and common names (`keypads.ALIASES`).
 
@@ -182,14 +193,17 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
 2. Create `src/pyktane/vanilla/<name>.py` with `Input`/`Answer`(/`State`)
    models and a `Module`/`StatelessModule` subclass setting `id`, `name`,
    `manual_url` (via `section_url("<Anchor>")`), `guide`, `input_type`,
-   `output_type` (and `state_type`).
-3. Register it in `vanilla/__init__.py`'s `PACK`.
+   `output_type` (and `state_type`), plus `examples` (required),
+   `aliases`, and `needy = True` for needy modules.
+3. Register it in `vanilla/__init__.py`'s `PACK`, in the manual's order.
 4. Test every rule branch (parametrized cases with a comment naming the rule),
    plus a Hypothesis property where one exists (e.g. "always cuts an existing
    wire").
-5. If it has a rule table, add a test to `tests/test_official_manual.py`
+5. Add it with its anchor to `test_every_module_links_its_section` in
+   `tests/test_official_manual.py`. If it has a rule table, add a test there
    that parses that table out of the saved manual.
-6. Add it to `docs/api.md`.
+6. Add it to `docs/api.md`, and to the module list in `docs/README.md`.
+   For a needy module, also say how to answer it in the MCP `INSTRUCTIONS`.
 7. Inputs are what an AI hears from a person: accept case and spacing
    variations, give near-miss suggestions in errors, and let partial reports
    (Morse letters, password columns) narrow things down instead of failing.
@@ -280,9 +294,13 @@ Caveats:
   well as an instance ID; with a name it picks the single unsolved instance,
   or adds one and marks it solved in one undoable change. Nothing has to
   have been reported first, since only the bomb knows a module is disarmed.
+- `UnknownInstanceError` subclasses `UnknownModuleError`, because calls
+  like `mark_solved` take either an instance ID or a module name. Catch the
+  more specific one first.
 - Needy modules set `needy = True`. They can't be disarmed, so
   `mark_solved` rejects them, also on replay, which keeps them out of the
-  solve order that modded boss modules read.
+  solve order that modded boss modules read. The MCP `unsolved` lists leave
+  them out too.
 - `Manual()` rejects ambiguous setups instead of guessing: two packs with the
   same module ID need an override, and several installed versions of a pack
   need a pinned `PackRef`.

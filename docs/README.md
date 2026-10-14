@@ -80,8 +80,9 @@ Welcome to **PyKTANE's** documentation!
 
 Solvers for [*Keep Talking and Nobody Explodes*](https://keeptalkinggame.com):
 you describe the bomb, **PyKTANE** reads the manual. It only asks for what a
-rule actually needs, tracks strikes and per-module state, supports undo, and
-can be extended with modded module packs.
+rule actually needs, tracks strikes and per-module state, fixes past mistakes
+(not just the latest one) and tells you which answers they changed, and can be
+extended with modded module packs.
 
 It also ships an optional [MCP](https://modelcontextprotocol.io) server, so an
 AI assistant can play the expert for you.
@@ -186,14 +187,18 @@ it doesn't know yet, it tells you what's safe to do right away first.
 | Tool | What it does |
 |---|---|
 | `new_bomb` | Start a new round |
-| `get_bomb` | Facts, strikes and modules so far |
+| `get_bomb` | Facts, missing facts, strikes and modules so far |
 | `list_facts` / `set_facts` | What can be recorded about the bomb, and recording it |
 | `list_modules` / `describe_module` | Supported modules, and what to report for each |
-| `add_module` / `solve` | Add a module, then get the answer (or a question to ask first) |
+| `add_module` / `solve` | Add a module (and learn what to ask about it), then get the answer, or the questions to ask first plus anything safe to do already |
 | `strike` / `mark_solved` | Keep the bomb's state in sync; `mark_solved` takes a module name when the defuser solved it alone |
 | `solve` with `correction: true` | Replace a module's misread report |
 | `get_history` / `edit_history` | Find and fix any past mistake (a strike that wasn't one, ...) |
 | `forget_fact` / `remove_module` / `undo` | Take back facts, modules, or the latest change |
+
+Changes return a short summary (what was recorded, strikes, unsolved modules)
+to keep voice replies fast, and list any earlier answers a correction changed
+so the assistant can warn you right away.
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
@@ -215,6 +220,6 @@ More details can be found in [CONTRIBUTING](CONTRIBUTING.md).
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 ## License
-[MIT](../LICENSE)
+[MIT][license]
 
 This project was created with the [MicaelJarniac/crustypy](https://github.com/MicaelJarniac/crustypy) template.
