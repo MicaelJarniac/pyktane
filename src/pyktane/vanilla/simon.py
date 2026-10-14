@@ -67,6 +67,8 @@ class SimonSays(StatelessModule[SimonInput, SimonAnswer]):
 
     id = "Simon"
     name = "Simon Says"
+    aliases = ("four colored buttons", "colored buttons")
+    examples = ({"flashes": ["red", "blue"]},)
     manual_url = section_url("SimonSays")
     guide = (
         "Report the full flash sequence so far (red, blue, green, yellow). "

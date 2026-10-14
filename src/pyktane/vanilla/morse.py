@@ -153,6 +153,8 @@ class Morse(StatelessModule[MorseInput, MorseAnswer]):
 
     id = "Morse"
     name = "Morse Code"
+    aliases = ("morse", "flashing light")
+    examples = ({"letters": ["...", "h"]}, {"letters": ["i", "c"], "from_start": False})
     manual_url = section_url("MorseCode")
     guide = (
         "Report the flashes letter by letter: short = dot, long = dash, a "

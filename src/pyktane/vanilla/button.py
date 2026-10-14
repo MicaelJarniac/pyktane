@@ -108,6 +108,8 @@ class Button(StatelessModule[ButtonInput, ButtonAnswer]):
 
     id = "BigButton"
     name = "The Button"
+    aliases = ("big button",)
+    examples = ({"color": "blue", "label": "Abort"}, {"strip": "white"})
     manual_url = section_url("TheButton")
     guide = (
         "Report the button's color (blue, red, white, yellow) and its label "

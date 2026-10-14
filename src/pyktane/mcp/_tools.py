@@ -5,6 +5,7 @@ built and tested without the ``mcp`` extra.
 """
 
 __all__: tuple[str, ...] = (
+    "Added",
     "Answered",
     "BombSummary",
     "Changed",
@@ -15,6 +16,7 @@ __all__: tuple[str, ...] = (
     "ModuleDetails",
     "ModuleSummary",
     "NeedsFact",
+    "Partial",
     "SolveResult",
     "Undone",
     "Updated",
@@ -66,15 +68,34 @@ class ChangedAnswerInfo(Frozen):
 type Changed = tuple[ChangedAnswerInfo, ...]
 
 
-class NeedsFact(Frozen):
-    """The module can't be solved until the defuser answers a question.
+class Partial(Frozen):
+    """What the defuser can safely do while questions are pending.
 
-    Ask `fact.question`, record the answer with `set_facts`, then call
-    `solve` again with the same input. Nothing changed on the bomb.
+    Attributes:
+        instruction: Read this to the defuser first.
+        details: The same, structured.
+    """
+
+    instruction: str
+    details: dict[str, JsonValue]
+
+
+class NeedsFact(Frozen):
+    """The answer depends on facts the defuser hasn't given yet.
+
+    Read `partial.instruction` first if there is one (it's safe to act on
+    now), then ask every question in `facts` at once, record the answers with
+    `set_facts`, and call `solve` again with the same input. Nothing changed
+    on the bomb.
+
+    Attributes:
+        facts: Every missing fact, most useful first.
+        partial: What can already be done, if anything.
     """
 
     status: Literal["needs_fact"] = "needs_fact"
-    fact: FactInfo
+    facts: tuple[FactInfo, ...]
+    partial: Partial | None = None
 
 
 class Answered(Frozen):
@@ -117,13 +138,34 @@ class ModuleDetails(ModuleSummary):
 
     Attributes:
         guide: What to read off the module.
+        examples: Valid `data` for `solve`, to copy the shape from.
         manual_url: The manual page these rules come from, to cite or check.
         input_schema: JSON Schema for `solve`'s `data` argument.
     """
 
     guide: str
+    examples: tuple[dict[str, Any], ...] = ()
     manual_url: str
     input_schema: dict[str, Any]
+
+
+class Added(Frozen):
+    """A module just put on the bomb, and how to report it.
+
+    Attributes:
+        id: Instance ID, for `solve` and `mark_solved`.
+        name: Its module name.
+        needy: Whether it's a needy module (never solved).
+        guide: What to ask the defuser about it.
+        examples: Valid `data` for `solve`. Call `describe_module` for the
+            full input schema only if these aren't enough.
+    """
+
+    id: str
+    name: str
+    needy: bool = False
+    guide: str
+    examples: tuple[dict[str, Any], ...] = ()
 
 
 class InstanceSummary(Frozen):
@@ -165,15 +207,21 @@ class BombSummary(Frozen):
 
 
 class Updated(Frozen):
-    """The bomb after a change.
+    """A change was recorded.
+
+    Kept short on purpose: call `get_bomb` for the full state.
 
     Attributes:
-        bomb: Everything known about it now.
+        done: What was recorded, in words.
+        strikes: Strikes so far.
+        unsolved: Unsolved, non-needy modules on the bomb, by instance ID.
         changed: Earlier answers that are different because of the change.
             Read each to the defuser: they may have acted on the old one.
     """
 
-    bomb: BombSummary
+    done: str
+    strikes: Count
+    unsolved: tuple[str, ...]
     changed: Changed = ()
 
 
@@ -197,9 +245,11 @@ class Undone(Frozen):
     """Result of `undo`.
 
     Attributes:
-        undone: Whether there was a change to revert.
-        bomb: The bomb after reverting.
+        undone: What was reverted, in words; empty if there was nothing.
+        strikes: Strikes now.
+        unsolved: Unsolved, non-needy modules now, by instance ID.
     """
 
-    undone: bool
-    bomb: BombSummary
+    undone: str
+    strikes: Count
+    unsolved: tuple[str, ...]

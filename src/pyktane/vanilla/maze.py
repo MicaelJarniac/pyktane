@@ -304,6 +304,13 @@ class Maze(StatelessModule[MazeInput, MazeAnswer]):
 
     id = "Maze"
     name = "Mazes"
+    examples = (
+        {
+            "marker": {"column": 1, "row": 2},
+            "start": {"column": 1, "row": 1},
+            "goal": {"column": 6, "row": 6},
+        },
+    )
     manual_url = section_url("Mazes")
     guide = (
         "Give positions as (column, row), each 1-6, counting from the top "

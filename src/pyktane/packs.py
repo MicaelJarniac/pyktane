@@ -142,6 +142,23 @@ def _resolve(ref: PackRef, available: Iterable[Pack]) -> Pack:
     return candidates[0]
 
 
+def _lookup_key(text: str) -> str:
+    """Normalize a module query: no case, punctuation or leading "the".
+
+    Example:
+        >>> _lookup_key("The Button"), _lookup_key("Who's on First")
+        ('button', 'whosonfirst')
+    """
+    words = text.split()
+    if len(words) > 1 and words[0].casefold() == "the":
+        words = words[1:]
+    return normalize(" ".join(words))
+
+
+def _names(module: AnyModule) -> set[str]:
+    return {_lookup_key(name) for name in (module.id, module.name, *module.aliases)}
+
+
 class Manual:
     """A resolved ruleset: the modules and facts actually in play.
 
@@ -233,28 +250,42 @@ class Manual:
         )
 
     def module(self, query: str) -> AnyModule:
-        """Find a module by ID or name, ignoring case and punctuation.
+        """Find a module by ID, name or alias, the way a person would say it.
+
+        Case, punctuation and a leading "the" are ignored, and a query that
+        names exactly one module partially ("button", "vent gas") finds it.
 
         Example:
-            ``manual.module("simon says")`` and ``manual.module("Simon")``
-            return the same solver.
+            ``manual.module("simon says")``, ``manual.module("Simon")`` and
+            ``manual.module("button")`` all work.
 
         Raises:
-            UnknownModuleError: Nothing matches.
+            UnknownModuleError: Nothing matches, or several modules do.
         """
         if query in self.modules:
             return self.modules[query]
-        key = normalize(query)
-        for module in self.modules.values():
-            if key in {normalize(module.id), normalize(module.name)}:
-                return module
+        key = _lookup_key(query)
+        if not key:
+            msg = "say which module (by name, ID or what it looks like)"
+            raise UnknownModuleError(msg)
+        for candidates in (
+            [m for m in self.modules.values() if key in _names(m)],
+            [m for m in self.modules.values() if any(key in n for n in _names(m))],
+        ):
+            if len(candidates) == 1:
+                return candidates[0]
+        partial = [m for m in self.modules.values() if any(key in n for n in _names(m))]
+        candidates = partial or self.search(query, limit=3)
         msg = f"no module matches {query!r}"
-        if similar := self.search(query, limit=3):
-            msg += "; did you mean " + " or ".join(repr(m.name) for m in similar) + "?"
+        if partial:
+            msg = f"{query!r} could be several modules"
+        if candidates:
+            names = " or ".join(repr(m.name) for m in candidates[:3])
+            msg += f"; did you mean {names}?"
         raise UnknownModuleError(msg)
 
     def search(self, query: str = "", *, limit: int | None = None) -> list[AnyModule]:
-        """Find modules whose ID or name resembles `query`, best match first.
+        """Find modules whose ID, name or aliases resemble `query`, best first.
 
         An empty query lists every module, sorted by name. Matching ignores
         case and punctuation, and tolerates typos.
@@ -264,12 +295,12 @@ class Manual:
             ``manual.search("memroy")`` still finds Memory.
         """
         modules = sorted(self.modules.values(), key=lambda module: module.name)
-        key = normalize(query)
+        key = _lookup_key(query)
         if not key:
             return modules[:limit]
 
         def score(module: AnyModule) -> float:
-            names = {normalize(module.id), normalize(module.name)}
+            names = _names(module)
             if any(key in name for name in names):
                 return 1.0
             return max(SequenceMatcher(None, key, name).ratio() for name in names)

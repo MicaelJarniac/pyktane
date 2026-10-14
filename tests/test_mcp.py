@@ -4,6 +4,7 @@ The client speaks the real MCP protocol to the server, so these tests cover
 schemas, serialization and error reporting, not just the Python functions.
 """
 
+import json
 import subprocess
 import sys
 from typing import Any
@@ -76,18 +77,21 @@ async def test_a_round_with_a_question(client: Client[Any]) -> None:
     simon = await call(client, "add_module", module="simon says")
     assert simon == {
         "id": "Simon#1",
-        "module": "Simon",
         "name": "Simon Says",
-        "solved": False,
         "needy": False,
+        "guide": simon["guide"],
+        "examples": [{"flashes": ["red", "blue"]}],
     }
+    assert simon["guide"].startswith("Report the full flash sequence")
 
     data = {"flashes": ["red", "green"]}
     asked = (await call(client, "solve", instance="Simon#1", data=data))["result"]
     assert asked["status"] == "needs_fact"
-    assert asked["fact"]["key"] == "serial"
-    assert asked["fact"]["question"] == "What is the serial number?"
-    assert asked["fact"]["value_schema"]["pattern"] == "^[A-Z0-9]+$"
+    assert asked["partial"] is None
+    (fact,) = asked["facts"]
+    assert fact["key"] == "serial"
+    assert fact["question"] == "What is the serial number?"
+    assert fact["value_schema"]["pattern"] == "^[A-Z0-9]+$"
 
     await call(client, "set_facts", facts={"serial": "ab3cd4"})
     answered = (await call(client, "solve", instance="Simon#1", data=data))["result"]
@@ -98,13 +102,19 @@ async def test_a_round_with_a_question(client: Client[Any]) -> None:
         "changed": [],
     }
 
-    bomb = (await call(client, "strike"))["bomb"]
-    assert bomb["strikes"] == 1
+    struck = await call(client, "strike")
+    assert struck == {
+        "done": "strike",
+        "strikes": 1,
+        "unsolved": ["Simon#1"],
+        "changed": [],
+    }
     answered = (await call(client, "solve", instance="Simon#1", data=data))["result"]
     assert answered["instruction"] == "Press yellow, blue."
 
-    bomb = (await call(client, "mark_solved", instance="Simon#1"))["bomb"]
-    assert bomb["modules"][0]["solved"]
+    solved = await call(client, "mark_solved", instance="Simon#1")
+    assert (solved["done"], solved["unsolved"]) == ("Simon#1 solved", [])
+    assert (await call(client, "get_bomb"))["modules"][0]["solved"]
 
 
 async def test_the_button_takes_two_kinds_of_input(client: Client[Any]) -> None:
@@ -140,13 +150,13 @@ async def test_get_bomb_and_missing_facts(client: Client[Any]) -> None:
         "modules": [],
         "can_undo": False,
     }
-    bomb = (
-        await call(
-            client,
-            "set_facts",
-            facts={"batteries": 2, "port_plates": [["rj45", "parallel"], []]},
-        )
-    )["bomb"]
+    updated = await call(
+        client,
+        "set_facts",
+        facts={"batteries": 2, "port_plates": [["rj45", "parallel"], []]},
+    )
+    assert updated["done"].startswith("record batteries=2")
+    bomb = await call(client, "get_bomb")
     assert bomb["facts"] == {"batteries": 2, "port_plates": [["Parallel", "RJ-45"], []]}
     assert bomb["missing_facts"] == ["serial", "battery_holders", "indicators"]
     assert bomb["can_undo"]
@@ -178,14 +188,12 @@ async def test_undo_and_new_bomb(client: Client[Any]) -> None:
     await call(client, "add_module", module="Memory")
     await call(client, "strike")
     undone = await call(client, "undo")
-    assert undone["undone"]
-    assert undone["bomb"]["strikes"] == 0
-    assert len(undone["bomb"]["modules"]) == 1
+    assert undone == {"undone": "strike", "strikes": 0, "unsolved": ["Memory#1"]}
 
     fresh = await call(client, "new_bomb")
     assert fresh["modules"] == []
     assert not fresh["can_undo"]
-    assert not (await call(client, "undo"))["undone"]
+    assert (await call(client, "undo"))["undone"] == ""
 
 
 async def test_memory_strike_on_its_instance(client: Client[Any]) -> None:
@@ -268,7 +276,8 @@ async def test_the_strike_that_wasnt(client: Client[Any]) -> None:
     assert history[2]["answer"] == "Press blue."
 
     updated = await call(client, "edit_history", index=strike["index"])
-    assert updated["bomb"]["strikes"] == 0
+    assert updated["strikes"] == 0
+    assert updated["done"] == "removed strike on Simon#1"
     assert updated["changed"] == [
         {
             "index": 3,
@@ -281,7 +290,7 @@ async def test_the_strike_that_wasnt(client: Client[Any]) -> None:
     answer = await call(client, "solve", instance="Memory#1", data=STAGE)
     assert answer["result"]["details"]["stage"] == 2
     await call(client, "undo")
-    assert (await call(client, "undo"))["bomb"]["strikes"] == 1
+    assert (await call(client, "undo"))["strikes"] == 1
 
 
 async def test_misreported_module(client: Client[Any]) -> None:
@@ -326,23 +335,26 @@ async def test_insert_and_replace_through_edit_history(client: Client[Any]) -> N
     inserted = await call(
         client, "edit_history", index=1, action={"kind": "strike"}, insert=True
     )
-    assert inserted["bomb"]["strikes"] == 1
+    assert inserted["strikes"] == 1
     replaced = await call(
         client,
         "edit_history",
         index=1,
         action={"kind": "set_facts", "facts": {"batteries": 2}},
     )
-    assert replaced["bomb"]["strikes"] == 0
-    assert replaced["bomb"]["facts"] == {"batteries": 2}
+    assert replaced["strikes"] == 0
+    assert replaced["done"] == "strike -> record batteries=2"
+    assert (await call(client, "get_bomb"))["facts"] == {"batteries": 2}
 
 
 async def test_forget_fact_and_remove_module(client: Client[Any]) -> None:
     await call(client, "set_facts", facts={"batteries": 2})
-    assert (await call(client, "forget_fact", key="batteries"))["bomb"]["facts"] == {}
+    assert (await call(client, "forget_fact", key="batteries"))["done"] == (
+        "forget batteries"
+    )
     await call(client, "add_module", module="Wires")
     updated = await call(client, "remove_module", instance="Wires#1")
-    assert updated["bomb"]["modules"] == []
+    assert updated["unsolved"] == []
 
 
 @pytest.mark.parametrize(
@@ -397,15 +409,17 @@ async def test_correction_mistakes_are_explained(client: Client[Any]) -> None:
 async def test_defuser_solved_it_alone(client: Client[Any]) -> None:
     """No report needed, and the module doesn't have to be added first."""
     updated = await call(client, "mark_solved", instance="simon says")
-    (simon,) = updated["bomb"]["modules"]
-    assert (simon["id"], simon["solved"]) == ("Simon#1", True)
+    assert updated["done"] == "add Simon as Simon#1, Simon#1 solved"
     history = (await call(client, "get_history"))["result"]
     assert [item["summary"] for item in history] == [
         "add Simon as Simon#1",
         "Simon#1 solved",
     ]
     # One undo takes back both.
-    assert (await call(client, "undo"))["bomb"]["modules"] == []
+    assert (await call(client, "undo"))["undone"] == (
+        "add Simon as Simon#1, Simon#1 solved"
+    )
+    assert (await call(client, "get_bomb"))["modules"] == []
 
 
 async def test_needy_modules_are_never_solved(client: Client[Any]) -> None:
@@ -428,3 +442,106 @@ async def test_ambiguous_module_name(client: Client[Any]) -> None:
     await call(client, "add_module", module="Memory")
     message = await error(client, "mark_solved", instance="Memory")
     assert "several unsolved Memory modules (Memory#1, Memory#2)" in message
+
+
+async def test_the_exploded_bomb_from_the_first_voice_test(client: Client[Any]) -> None:
+    """Replays playground/first_tests.md, where time ran out on a question.
+
+    Six vertical wires: three were certain cuts, but the server asked for the
+    ports first and the bomb exploded before the defuser answered. Now the
+    certain cuts come first, and the open questions are asked together.
+    """
+    added = await call(client, "add_module", module="vertical wires")
+    assert added["name"] == "Complicated Wires"
+    wires = [
+        {"colors": ["white"], "led": False, "star": True},
+        {"colors": ["white"], "led": False, "star": False},
+        {"colors": ["white", "red"], "led": False, "star": True},
+        {"colors": ["white", "blue"], "led": True, "star": False},
+        {"colors": ["white", "blue"], "led": True, "star": True},
+        {"colors": ["red"], "led": True, "star": False},
+    ]
+    asked = (await call(client, "solve", instance=added["id"], data={"wires": wires}))[
+        "result"
+    ]
+    assert asked["status"] == "needs_fact"
+    assert asked["partial"] == {
+        "instruction": "Cut the 1st, 2nd, 3rd wires, counting from the left; "
+        "wait on the 4th, 5th, 6th wires until I know more.",
+        "details": {"cut": [1, 2, 3], "pending": [4, 5, 6]},
+    }
+    assert [fact["key"] for fact in asked["facts"]] == [
+        "batteries",
+        "has_parallel_port",
+    ]
+    # A yes/no question, not "list every port on every plate".
+    assert asked["facts"][1]["value_schema"] == {"type": "boolean"}
+
+    await call(client, "set_facts", facts={"batteries": 2, "has_parallel_port": False})
+    done = (await call(client, "solve", instance=added["id"], data={"wires": wires}))[
+        "result"
+    ]
+    assert (
+        done["instruction"]
+        == "Cut the 1st, 2nd, 3rd, 6th wires, counting from the left."
+    )
+
+
+@pytest.mark.parametrize(
+    ("said", "module"),
+    [
+        ("Button", "The Button"),
+        ("the button", "The Button"),
+        ("vertical wires", "Complicated Wires"),
+        ("horizontal wires", "Wires"),
+        ("symbols", "Keypads"),
+        ("vent gas", "Venting Gas"),
+        ("knob", "Knobs"),
+        ("capacitor", "Capacitor Discharge"),
+    ],
+)
+async def test_modules_by_what_the_defuser_says(
+    client: Client[Any], said: str, module: str
+) -> None:
+    assert (await call(client, "add_module", module=said))["name"] == module
+
+
+async def test_ambiguous_module_names_are_explained(client: Client[Any]) -> None:
+    message = await error(client, "add_module", module="wire")
+    assert "'wire' could be several modules" in message
+    assert "'Wires'" in message
+    assert "'Complicated Wires'" in message
+
+
+async def test_add_module_says_what_to_ask(client: Client[Any]) -> None:
+    added = await call(client, "add_module", module="maze")
+    assert added["guide"].startswith("Give positions as (column, row)")
+    assert added["examples"][0]["marker"] == {"column": 1, "row": 2}
+
+
+async def test_schemas_are_compact(client: Client[Any]) -> None:
+    """No titles, $refs or docstring sections: just the constraints."""
+    for module in (await call(client, "list_modules"))["result"]:
+        schema = (await call(client, "describe_module", module=module["id"]))[
+            "input_schema"
+        ]
+        text = json.dumps(schema)
+        assert "$ref" not in text
+        assert '"title"' not in text
+        assert "Attributes:" not in text
+    keypad = (await call(client, "describe_module", module="Keypad"))["input_schema"]
+    assert "copyright" in keypad["properties"]["symbols"]["items"]["enum"]
+
+
+async def test_derived_fact_comes_from_port_plates(client: Client[Any]) -> None:
+    await call(client, "set_facts", facts={"port_plates": [["Parallel"]]})
+    await call(client, "add_module", module="vertical wires")
+    answer = await call(
+        client,
+        "solve",
+        instance="Venn#1",
+        data={"wires": [{"colors": ["blue"], "led": True}]},
+    )
+    assert answer["result"]["instruction"].startswith("Cut the 1st wire")
+    bomb = await call(client, "get_bomb")
+    assert "has_parallel_port" not in bomb["missing_facts"]

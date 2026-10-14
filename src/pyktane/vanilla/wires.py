@@ -54,6 +54,8 @@ class Wires(StatelessModule[WiresInput, WiresAnswer]):
 
     id = "Wires"
     name = "Wires"
+    aliases = ("horizontal wires", "simple wires")
+    examples = ({"wires": ["red", "blue", "white"]},)
     manual_url = section_url("Wires")
     guide = (
         "List the wire colors from top to bottom, ignoring empty slots. "

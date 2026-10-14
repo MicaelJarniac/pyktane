@@ -3,6 +3,8 @@
 __all__: tuple[str, ...] = ("Context",)
 
 from collections.abc import Mapping
+from typing import Any
+lazy from collections.abc import Iterator
 
 from pydantic import JsonValue
 
@@ -30,12 +32,28 @@ class Context(Frozen):
     solved: tuple[str, ...] = ()
 
     def get[T](self, fact: Fact[T]) -> T:
-        """Return the value of `fact`.
+        """Return the value of `fact`, working it out if it's derived.
 
         Raises:
             NeedsInfo: The fact has not been provided.
         """
+        for value in self._lookup(fact):
+            return value
+        raise NeedsInfo(fact)
+
+    def has(self, fact: Fact[Any]) -> bool:
+        """Whether `fact` is known, directly or derived from a known fact.
+
+        Lets a solver check several facts first, then ask for all the missing
+        ones at once instead of one question per round trip.
+        """
+        return any(True for _ in self._lookup(fact))
+
+    def _lookup[T](self, fact: Fact[T]) -> Iterator[T]:
+        """Yield the fact's value if it's known; yield nothing otherwise."""
         raw = self.facts.get(fact.key)
-        if raw is None:
-            raise NeedsInfo(fact)
-        return fact.validate(raw)
+        if raw is not None:
+            yield fact.validate(raw)
+        elif fact.derived_from is not None and fact.derive is not None:
+            for source in self._lookup(fact.derived_from):
+                yield fact.derive(source)

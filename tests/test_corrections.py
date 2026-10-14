@@ -367,3 +367,15 @@ def test_replaying_the_log_always_reproduces_the_state(edits: list[str]) -> None
             case _:
                 pass
         assert Session(bomb.manual, bomb.actions).state == bomb.state
+
+
+def test_last_change_describes_what_undo_reverts(bomb: Session) -> None:
+    assert bomb.last_change == ""
+    bomb.mark_solved("simon")
+    assert bomb.last_change == "add Simon as Simon#1, Simon#1 solved"
+    bomb.set_facts(batteries=1)
+    bomb.set_facts(batteries=2)
+    assert bomb.last_change == "record batteries=1 -> record batteries=2"
+    bomb.strike()
+    bomb.remove_action(len(bomb.actions) - 1)
+    assert bomb.last_change == "removed strike"

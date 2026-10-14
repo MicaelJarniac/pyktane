@@ -179,7 +179,9 @@ Cursor, opencode...):
 
 Then ask your assistant to be the expert, or use the server's `defuse`
 prompt. It records the edgework, asks you what it needs, and tells you what
-to do.
+to do. It works well in voice mode: describe modules the way you'd say them
+("vertical wires", "a big button"), and when an answer depends on something
+it doesn't know yet, it tells you what's safe to do right away first.
 
 | Tool | What it does |
 |---|---|

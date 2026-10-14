@@ -87,6 +87,8 @@ class Passwords(StatelessModule[PasswordsInput, PasswordsAnswer]):
 
     id = "Password"
     name = "Passwords"
+    aliases = ("letter wheels", "five letters")
+    examples = ({"columns": ["tpswvz", "hlkr", "", "", ""]},)
     manual_url = section_url("Passwords")
     guide = (
         "Cycle each of the five positions through all six of its letters and "

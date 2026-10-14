@@ -9,6 +9,7 @@ from pyktane.base import ordinal
 from pyktane.context import Context
 from pyktane.edgework import (
     BATTERIES,
+    HAS_PARALLEL_PORT,
     INDICATORS,
     PORT_PLATES,
     SERIAL,
@@ -111,3 +112,25 @@ def test_ordinal_suffix(number: int) -> None:
     text = ordinal(number)
     assert text.startswith(str(number))
     assert text[-2:] in {"st", "nd", "rd", "th"}
+
+
+def test_derived_fact() -> None:
+    """has_parallel_port comes from the plates when known, else is asked."""
+    assert Context(facts={"port_plates": [["Parallel"], []]}).get(HAS_PARALLEL_PORT)
+    assert not Context(facts={"port_plates": [[]]}).get(HAS_PARALLEL_PORT)
+    assert Context(facts={"has_parallel_port": True}).get(HAS_PARALLEL_PORT)
+    with pytest.raises(NeedsInfo) as missing:
+        Context().get(HAS_PARALLEL_PORT)
+    assert missing.value.fact is HAS_PARALLEL_PORT
+    assert not Context().has(HAS_PARALLEL_PORT)
+
+
+def test_needs_info_with_several_facts() -> None:
+    error = NeedsInfo(SERIAL, BATTERIES)
+    assert error.facts == (SERIAL, BATTERIES)
+    assert error.fact is SERIAL
+    assert error.partial is None
+    assert "'serial'" in str(error)
+    assert "'batteries'" in str(error)
+    with pytest.raises(ValueError, match="at least one fact"):
+        NeedsInfo()

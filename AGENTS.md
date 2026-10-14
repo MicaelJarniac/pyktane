@@ -78,8 +78,16 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
   anywhere; if vanilla needs something, a modded pack will too.
 - **Module IDs** are the `ModuleID` from the
   [Repository of Manual Pages](https://ktane.timwi.de) (`Wires`, `Simon`,
-  `BigButton`, `Venn`, ...). `name` is the manual title. Lookups via
-  `Manual.module()` accept either, ignoring case and punctuation.
+  `BigButton`, `Venn`, ...). `name` is the manual title. `aliases` are what
+  defusers call it ("vertical wires", "vent gas"). `Manual.module()` accepts
+  any of them, ignoring case, punctuation and a leading "the", and takes a
+  query that's part of exactly one module's names ("button").
+- **Every module sets `examples`**: valid inputs, so a model sees the shape
+  without parsing the schema. A test validates them all.
+- **Facts can be derived.** `HAS_PARALLEL_PORT` is answered by
+  `port_plates` when known, and asked as a quick yes/no otherwise. Prefer a
+  narrow derived fact over asking for a whole structure when a rule only
+  needs one bit of it.
 - **Manual versions are pack versions.** A rules change means a new pack
   version (a new `Pack` with a bumped `version`, sharing helpers), never
   `if version == ...` branches inside solvers. Refactors that don't change
@@ -118,8 +126,17 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
   `edit_history` for anything else. Results carry `changed`, and the
   instructions tell the model to read those to the defuser at once.
 - **`NeedsInfo` is a result, not an error.** `solve` returns
-  `{"status": "needs_fact", "fact": {...question, value_schema}}`, and the
-  model asks the defuser. Errors are for mistakes: raise
+  `{"status": "needs_fact", "facts": [...], "partial": {...} | null}`: every
+  missing fact at once, plus what's already safe to do. A solver that can
+  answer part of a module raises `NeedsInfo(*facts, partial=answer)`
+  (Complicated Wires does), so the defuser isn't left waiting on a question
+  while the clock runs. Check several facts with `ctx.has()` before asking.
+- **Built for voice, where every token is latency.** Writes return a short
+  `{done, strikes, unsolved, changed}` (not the whole bomb: that's
+  `get_bomb`); `add_module` returns the module's `guide` and `examples` so
+  `describe_module` is rarely needed; schemas go through `compact()` (no
+  titles, `$ref`s or docstring sections). Lessons from real voice play are
+  in `playground/` (git-ignored). Errors are for mistakes: raise
   `ToolError(..., log_level=logging.INFO)` with a short message that tells the
   model how to fix the call (see `_tool_error`). Never leak Pydantic's raw
   output with its URLs.

@@ -17,6 +17,7 @@ __all__: tuple[str, ...] = (
 from typing import Any
 
 lazy from pyktane.actions import Action
+lazy from pyktane.base import Answer
 lazy from pyktane.facts import Fact
 
 
@@ -25,18 +26,36 @@ class PyktaneError(Exception):
 
 
 class NeedsInfo(PyktaneError):  # noqa: N818 - it is a request, not a failure
-    """A rule needs a fact about the bomb that has not been provided yet.
+    """A rule needs facts about the bomb that haven't been provided yet.
 
     This is the normal way solvers ask for information: they only read facts
     when a rule actually depends on them, so the defuser is only asked what
-    matters. Frontends catch this, ask `fact.question`, store the answer and
+    matters. Frontends catch this, ask the questions, store the answers and
     retry.
+
+    A solver that can already say something useful (cut these wires now, the
+    rest depends on the answer) attaches it as `partial`, so the defuser
+    doesn't wait on a question to act on what's certain.
+
+    Attributes:
+        facts: Every missing fact the answer depends on, most useful first.
+        partial: What the defuser can safely do already, if anything.
     """
 
-    def __init__(self, fact: Fact[Any]) -> None:
-        """Create the request for `fact`."""
-        super().__init__(f"Missing bomb info {fact.key!r}: {fact.question}")
-        self.fact = fact
+    def __init__(self, *facts: Fact[Any], partial: Answer | None = None) -> None:
+        """Ask for `facts`, optionally with a partial answer."""
+        if not facts:
+            msg = "NeedsInfo needs at least one fact"
+            raise ValueError(msg)
+        questions = "; ".join(f"{fact.key!r}: {fact.question}" for fact in facts)
+        super().__init__(f"Missing bomb info {questions}")
+        self.facts: tuple[Fact[Any], ...] = facts
+        self.partial = partial
+
+    @property
+    def fact(self) -> Fact[Any]:
+        """The first missing fact."""
+        return self.facts[0]
 
 
 class UnknownError(PyktaneError, LookupError):

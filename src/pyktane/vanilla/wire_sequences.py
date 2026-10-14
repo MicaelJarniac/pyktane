@@ -119,6 +119,15 @@ class WireSequences(
 
     id = "WireSequence"
     name = "Wire Sequences"
+    aliases = ("wire panels", "letters a b c")
+    examples = (
+        {
+            "wires": [
+                {"start": 1, "color": "red", "to": "C"},
+                {"start": 3, "color": "black", "to": "A"},
+            ]
+        },
+    )
     manual_url = section_url("WireSequences")
     guide = (
         "Report one panel at a time, in order: for each wire, the number it "

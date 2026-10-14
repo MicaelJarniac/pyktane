@@ -13,7 +13,9 @@ from mcp.types import ToolAnnotations
 from pydantic import Field, JsonValue, ValidationError
 
 from pyktane.errors import NeedsInfo, PyktaneError
+from pyktane.mcp._schema import compact
 from pyktane.mcp._tools import (
+    Added,
     Answered,
     BombSummary,
     ChangedAnswerInfo,
@@ -23,6 +25,7 @@ from pyktane.mcp._tools import (
     ModuleDetails,
     ModuleSummary,
     NeedsFact,
+    Partial,
     SolveResult,
     Undone,
     Updated,
@@ -35,24 +38,39 @@ lazy from pyktane.module import AnyModule
 
 INSTRUCTIONS: Final = """\
 You are the expert in Keep Talking and Nobody Explodes: the user is the
-defuser looking at the bomb, and these tools hold the manual.
+defuser looking at the bomb, and these tools hold the manual. The clock is
+running: keep every reply short, and act on what you can right away.
 
-1. Call `new_bomb` at the start of every round.
-2. Ask the defuser for the edgework up front (serial number, batteries,
-   battery holders, indicators, port plates) and record it with `set_facts`.
-   `get_bomb` lists what's still missing.
-3. For each module: `add_module`, then `describe_module` to learn what to
-   ask, then `solve` with what the defuser reports.
-4. If `solve` returns `needs_fact`, ask that question, record the answer with
-   `set_facts`, and call `solve` again with the same input.
-5. Read `instruction` back to the defuser in plain words.
-6. Report strikes with `strike` (some answers change with the strike count)
-   and finished modules with `mark_solved`.
-7. If the defuser solved a module on their own, don't ask them to describe
-   it: just `mark_solved` with its name (e.g. "Simon Says"). It's added if
-   needed. Boss modules in modded packs can depend on what was solved.
-8. Needy modules (Venting Gas, Capacitor Discharge, Knobs; `needy: true`)
-   can't be disarmed. Help each time they activate; never mark them solved.
+Start of a round:
+1. Call `new_bomb`.
+2. Before the first module, ask for the edgework in one go: serial number,
+   batteries, battery holders, lit and unlit indicators, and the ports on
+   each plate. Record it with `set_facts`. If the defuser skips some, ask
+   once more briefly, then move on; `solve` asks for anything it needs.
+
+Each module:
+3. `add_module` with what the defuser calls it ("button", "vertical wires",
+   "symbols"...). Its result has a `guide` and `examples`: ask the defuser
+   for exactly that. Call `describe_module` only if you're unsure.
+4. `solve` with their report and read `instruction` back in plain words.
+5. If `solve` returns `needs_fact`: first read `partial.instruction` if there
+   is one (the defuser can act on it now), then ask every question in
+   `facts` at once, record the answers with `set_facts`, and `solve` again
+   with the same input.
+6. `mark_solved` when the module's light turns green. If the defuser solved
+   one on their own, `mark_solved` it by name; don't ask them to describe it.
+7. Report strikes with `strike`: some answers change with the strike count.
+
+Needy modules (`needy: true`) can't be disarmed; never mark them solved.
+Answer them instantly, without waiting on a tool, then record them with
+`solve` (the defuser often mentions them mid-sentence: handle them first):
+- Venting Gas: "VENT GAS?" means press Y; "DETONATE?" means press N.
+- Capacitor Discharge: hold the lever down until it discharges.
+- Knobs: needs the 12 LEDs; use `solve`.
+
+If the defuser abandons a module mid-way, finish what they turned to, then
+remind them of it. When they ask what's left, `get_bomb` and list the unsolved
+modules.
 
 Fixing mistakes:
 - A module was misread ("6 wires... wait, 5"): call `solve` again with
@@ -72,7 +90,10 @@ _WRITE: Final = ToolAnnotations(read_only_hint=False, destructive_hint=False)
 _RESET: Final = ToolAnnotations(read_only_hint=False, destructive_hint=True)
 
 _INSTANCE: Final = Field(description="Instance ID returned by `add_module`.")
-_MODULE: Final = Field(description="Module ID or name, e.g. 'Wires' or 'simon says'.")
+_MODULE: Final = Field(
+    description="Module name, ID or what the defuser calls it, e.g. 'button', "
+    "'vertical wires', 'simon says'."
+)
 
 
 def _fact_info(fact: Fact[Any]) -> FactInfo:
@@ -80,8 +101,18 @@ def _fact_info(fact: Fact[Any]) -> FactInfo:
         key=fact.key,
         question=fact.question,
         description=fact.description,
-        value_schema=fact.adapter.json_schema(),
+        value_schema=compact(fact.adapter.json_schema()),
     )
+
+
+def _needs_fact(missing: NeedsInfo) -> NeedsFact:
+    partial = None
+    if missing.partial is not None:
+        partial = Partial(
+            instruction=missing.partial.instruction,
+            details=missing.partial.model_dump(mode="json", exclude={"instruction"}),
+        )
+    return NeedsFact(facts=tuple(map(_fact_info, missing.facts)), partial=partial)
 
 
 def _module_summary(manual: Manual, module: AnyModule) -> ModuleSummary:
@@ -163,8 +194,20 @@ class _Bomb:
             can_undo=self.session.can_undo,
         )
 
+    def unsolved(self) -> tuple[str, ...]:
+        return tuple(
+            instance.id
+            for instance in self.session.state.instances
+            if not instance.solved and not self.manual.module(instance.module).needy
+        )
+
     def updated(self, revision: Revision) -> Updated:
-        return Updated(bomb=self.summary(), changed=_changed(revision))
+        return Updated(
+            done=self.session.last_change,
+            strikes=self.session.state.strikes,
+            unsolved=self.unsolved(),
+            changed=_changed(revision),
+        )
 
 
 def create_server(manual: Manual | None = None) -> FastMCP:  # noqa: C901, PLR0915 - registers tools
@@ -245,15 +288,26 @@ def create_server(manual: Manual | None = None) -> FastMCP:  # noqa: C901, PLR09
         return ModuleDetails(
             **_module_summary(rules, found).model_dump(),
             guide=found.guide,
+            examples=found.examples,
             manual_url=found.manual_url,
-            input_schema=found.input_type.model_json_schema(),
+            input_schema=compact(found.input_type.model_json_schema()),
         )
 
     @server.tool(annotations=_WRITE)
-    def add_module(module: Annotated[str, _MODULE]) -> InstanceSummary:
-        """Add a module to the bomb. Returns its instance ID, used by `solve`."""
+    def add_module(module: Annotated[str, _MODULE]) -> Added:
+        """Add a module to the bomb, by name or by what the defuser calls it.
+
+        Returns its instance ID for `solve`, plus what to ask about it.
+        """
         instance_id = _report_errors("module", lambda: bomb.session.add_module(module))
-        return next(i for i in bomb.summary().modules if i.id == instance_id)
+        found = bomb.session.module_of(instance_id)
+        return Added(
+            id=instance_id,
+            name=found.name,
+            needy=found.needy,
+            guide=found.guide,
+            examples=found.examples,
+        )
 
     @server.tool(annotations=_WRITE)
     def remove_module(instance: Annotated[str, _INSTANCE]) -> Updated:
@@ -267,7 +321,10 @@ def create_server(manual: Manual | None = None) -> FastMCP:  # noqa: C901, PLR09
         instance: Annotated[str, _INSTANCE],
         data: Annotated[
             dict[str, JsonValue],
-            Field(description="What the defuser reports; see `describe_module`."),
+            Field(
+                description="What the defuser reports, shaped like the "
+                "module's `examples`."
+            ),
         ],
         *,
         correction: Annotated[
@@ -282,7 +339,8 @@ def create_server(manual: Manual | None = None) -> FastMCP:  # noqa: C901, PLR09
         """Work out what the defuser should do with a module.
 
         Returns `answered` with an instruction to read out, or `needs_fact`
-        with a question to ask the defuser before calling `solve` again.
+        with questions to ask (and possibly a `partial` instruction to read
+        out first) before calling `solve` again.
         """
         what = "module input (see `describe_module` for the format)"
         try:
@@ -299,7 +357,7 @@ def create_server(manual: Manual | None = None) -> FastMCP:  # noqa: C901, PLR09
                 )
                 changed = ()
         except NeedsInfo as missing:
-            return NeedsFact(fact=_fact_info(missing.fact))
+            return _needs_fact(missing)
         return Answered(
             instruction=answer.instruction,
             details=answer.model_dump(mode="json", exclude={"instruction"}),
@@ -403,7 +461,13 @@ def create_server(manual: Manual | None = None) -> FastMCP:  # noqa: C901, PLR09
     @server.tool(annotations=_WRITE)
     def undo() -> Undone:
         """Revert the latest change, corrections and history edits included."""
-        return Undone(undone=bomb.session.undo(), bomb=bomb.summary())
+        what = bomb.session.last_change
+        bomb.session.undo()
+        return Undone(
+            undone=what,
+            strikes=bomb.session.state.strikes,
+            unsolved=bomb.unsolved(),
+        )
 
     @server.prompt
     def defuse() -> str:

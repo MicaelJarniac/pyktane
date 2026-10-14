@@ -135,6 +135,8 @@ class Memory(Module[MemoryInput, MemoryAnswer, MemoryState]):
 
     id = "Memory"
     name = "Memory"
+    aliases = ("memory game",)
+    examples = ({"display": 2, "labels": [4, 2, 3, 1]},)
     manual_url = section_url("Memory")
     guide = (
         "Report the number on the display and the four button labels from "

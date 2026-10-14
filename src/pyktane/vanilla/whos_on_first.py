@@ -606,6 +606,13 @@ class WhosOnFirst(StatelessModule[WhosOnFirstInput, WhosOnFirstAnswer]):
 
     id = "WhosOnFirst"
     name = "Who's on First"
+    aliases = ("six word buttons", "words")
+    examples = (
+        {
+            "display": "YES",
+            "labels": ["READY", "FIRST", "NO", "BLANK", "NOTHING", "YES"],
+        },
+    )
     manual_url = section_url("WhosOnFirst")
     guide = (
         "Spell out the word on the display letter by letter (it may be empty "

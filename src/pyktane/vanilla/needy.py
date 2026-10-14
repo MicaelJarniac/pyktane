@@ -64,6 +64,8 @@ class VentingGas(StatelessModule[VentingGasInput, VentingGasAnswer]):
     id = "NeedyVentGas"
     needy = True
     name = "Venting Gas"
+    aliases = ("vent gas", "detonate", "yes or no")
+    examples = ({"prompt": "vent gas"},)
     manual_url = section_url("VentingGas")
     guide = 'Report the question on the screen: "VENT GAS?" or "DETONATE?".'
     input_type = VentingGasInput
@@ -86,6 +88,8 @@ class CapacitorDischarge(StatelessModule[CapacitorInput, Answer]):
     id = "NeedyCapacitor"
     needy = True
     name = "Capacitor Discharge"
+    aliases = ("capacitor", "lever")
+    examples = ({},)
     manual_url = section_url("CapacitorDischarge")
     guide = "Nothing to report; just ask what to do."
     input_type = CapacitorInput
@@ -183,6 +187,8 @@ class Knobs(StatelessModule[KnobInput, KnobAnswer]):
     id = "NeedyKnob"
     needy = True
     name = "Knobs"
+    aliases = ("knob", "dial")
+    examples = ({"top": "..X.XX", "bottom": "XXXX.X"},)
     manual_url = section_url("Knobs")
     guide = (
         "Report the twelve LEDs as two rows of six, left to right, e.g. top "

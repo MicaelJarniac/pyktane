@@ -40,6 +40,10 @@ class Module[I: BaseModel, O: Answer, S: Frozen](ABC):
         state_type: What the module remembers between inputs.
         needy: Whether it's a needy module: one that can't be disarmed and
             keeps reactivating, so it's never marked solved.
+        aliases: Other things people call it, or how they describe it
+            ("vertical wires" for Complicated Wires), for lookups.
+        examples: A few valid inputs, as JSON, so a caller can see the
+            shape at a glance without reading the full schema.
     """
 
     id: str
@@ -50,6 +54,8 @@ class Module[I: BaseModel, O: Answer, S: Frozen](ABC):
     output_type: type[O]
     state_type: type[S]
     needy: ClassVar[bool] = False
+    aliases: ClassVar[tuple[str, ...]] = ()
+    examples: ClassVar[tuple[dict[str, Any], ...]] = ()
 
     def initial_state(self) -> S:
         """State of a freshly added module."""

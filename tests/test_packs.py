@@ -191,3 +191,27 @@ class TestConflicts:
 def test_modded_module_solves() -> None:
     module: Any = Manual([VANILLA, MODDED]).module("two bits")
     assert module.solve(Empty(), Context()).instruction == "solved by TwoBits"
+
+
+@pytest.mark.parametrize(
+    ("query", "module"),
+    [
+        ("The Button", "BigButton"),
+        ("button", "BigButton"),  # Part of exactly one name.
+        ("vertical wires", "Venn"),  # An alias.
+        ("Vent Gas", "NeedyVentGas"),
+    ],
+)
+def test_module_lookup_like_a_person(query: str, module: str) -> None:
+    assert Manual([VANILLA]).module(query).id == module
+
+
+def test_ambiguous_lookup_lists_candidates() -> None:
+    with pytest.raises(UnknownModuleError, match="could be several modules"):
+        Manual([VANILLA]).module("wire")
+
+
+@pytest.mark.parametrize("query", ["", "  ", "?!"])
+def test_empty_lookup(query: str) -> None:
+    with pytest.raises(UnknownModuleError, match="say which module"):
+        Manual([VANILLA]).module(query)

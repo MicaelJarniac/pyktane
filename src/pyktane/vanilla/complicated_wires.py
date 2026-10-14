@@ -22,7 +22,8 @@ lazy from collections.abc import Mapping
 from annotated_types import Len
 
 from pyktane.base import Answer, Frozen, LenientStrEnum, ordinal
-from pyktane.edgework import BATTERIES, PORT_PLATES, SERIAL, Port, has_port, last_digit
+from pyktane.edgework import BATTERIES, HAS_PARALLEL_PORT, SERIAL, last_digit
+from pyktane.errors import NeedsInfo
 from pyktane.module import StatelessModule
 from pyktane.vanilla._manual import section_url
 lazy from pyktane.context import Context
@@ -108,9 +109,12 @@ class ComplicatedWiresAnswer(Answer):
 
     Attributes:
         cut: 1-based positions, left to right.
+        pending: Wires not decided yet (in a partial answer): they depend on
+            facts still to be given.
     """
 
     cut: tuple[int, ...]
+    pending: tuple[int, ...] = ()
 
 
 class ComplicatedWires(StatelessModule[ComplicatedWiresInput, ComplicatedWiresAnswer]):
@@ -118,6 +122,15 @@ class ComplicatedWires(StatelessModule[ComplicatedWiresInput, ComplicatedWiresAn
 
     id = "Venn"
     name = "Complicated Wires"
+    aliases = ("vertical wires", "wires with leds", "venn")
+    examples = (
+        {
+            "wires": [
+                {"colors": ["white"], "led": False, "star": True},
+                {"colors": ["red", "blue"], "led": True, "star": False},
+            ]
+        },
+    )
     manual_url = section_url("ComplicatedWires")
     guide = (
         "For each wire from left to right, report its colors (white, red, "
@@ -130,19 +143,43 @@ class ComplicatedWires(StatelessModule[ComplicatedWiresInput, ComplicatedWiresAn
     def solve(
         self, data: ComplicatedWiresInput, ctx: Context
     ) -> ComplicatedWiresAnswer:
-        """Decide each wire, asking for edgework only when a rule needs it."""
-        cut = tuple(
-            position
+        """Decide each wire, asking for edgework only when a rule needs it.
+
+        If some wires depend on facts nobody has given yet, the defuser gets
+        the wires that are already certain as a partial answer, and is asked
+        every missing fact in one go.
+
+        Raises:
+            NeedsInfo: Some wires need facts; its `partial` says what to cut
+                (or not) right away.
+        """
+        needed = {_FACTS[rule] for wire in data.wires if (rule := wire.rule) in _FACTS}
+        missing = [fact for fact in _FACT_ORDER if fact in needed and not ctx.has(fact)]
+        decided = {
+            position: self._should_cut(wire.rule, ctx)
             for position, wire in enumerate(data.wires, start=1)
-            if self._should_cut(wire.rule, ctx)
+            if _FACTS.get(wire.rule) not in missing
+        }
+        if not missing:
+            cut = tuple(position for position, yes in decided.items() if yes)
+            return ComplicatedWiresAnswer(cut=cut, instruction=_cut_sentence(cut))
+        cut = tuple(position for position, yes in decided.items() if yes)
+        pending = tuple(
+            position
+            for position in range(1, len(data.wires) + 1)
+            if position not in decided
         )
-        if not cut:
-            instruction = "Don't cut any wire."
-        else:
-            names = ", ".join(ordinal(position) for position in cut)
-            plural = "wire" if len(cut) == 1 else "wires"
-            instruction = f"Cut the {names} {plural}, counting from the left."
-        return ComplicatedWiresAnswer(cut=cut, instruction=instruction)
+        waiting = f"; wait on the {_positions(pending)} until I know more"
+        partial = ComplicatedWiresAnswer(
+            cut=cut,
+            pending=pending,
+            instruction=(
+                _cut_sentence(cut) if cut else "Don't cut anything yet"
+            ).removesuffix(".")
+            + waiting
+            + ".",
+        )
+        raise NeedsInfo(*missing, partial=partial)
 
     @staticmethod
     def _should_cut(rule: Rule, ctx: Context) -> bool:
@@ -154,5 +191,25 @@ class ComplicatedWires(StatelessModule[ComplicatedWiresInput, ComplicatedWiresAn
             case Rule.SERIAL_EVEN:
                 return last_digit(ctx.get(SERIAL)) % 2 == 0
             case Rule.PARALLEL_PORT:
-                return has_port(ctx.get(PORT_PLATES), Port.PARALLEL)
+                return ctx.get(HAS_PARALLEL_PORT)
         return ctx.get(BATTERIES) >= _MIN_BATTERIES  # Rule.TWO_BATTERIES.
+
+
+# Which fact each conditional rule reads; asked in this order.
+_FACTS: Final = {
+    Rule.SERIAL_EVEN: SERIAL,
+    Rule.PARALLEL_PORT: HAS_PARALLEL_PORT,
+    Rule.TWO_BATTERIES: BATTERIES,
+}
+_FACT_ORDER: Final = (SERIAL, BATTERIES, HAS_PARALLEL_PORT)
+
+
+def _positions(positions: tuple[int, ...]) -> str:
+    names = ", ".join(ordinal(position) for position in positions)
+    return f"{names} {'wire' if len(positions) == 1 else 'wires'}"
+
+
+def _cut_sentence(cut: tuple[int, ...]) -> str:
+    if not cut:
+        return "Don't cut any wire."
+    return f"Cut the {_positions(cut)}, counting from the left."

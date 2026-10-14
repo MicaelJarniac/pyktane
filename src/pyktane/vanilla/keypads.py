@@ -178,6 +178,8 @@ class Keypad(StatelessModule[KeypadInput, KeypadAnswer]):
 
     id = "Keypad"
     name = "Keypads"
+    aliases = ("symbols", "four symbols")
+    examples = ({"symbols": ["copyright", "pumpkin", "double k", "hollow star"]},)
     manual_url = section_url("Keypads")
     guide = (
         "Name the four symbols, in any order, using: "

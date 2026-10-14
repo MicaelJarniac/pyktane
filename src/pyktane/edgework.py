@@ -8,6 +8,7 @@ __all__: tuple[str, ...] = (
     "BATTERIES",
     "BATTERY_HOLDERS",
     "EDGEWORK_FACTS",
+    "HAS_PARALLEL_PORT",
     "INDICATORS",
     "PORT_PLATES",
     "SERIAL",
@@ -166,6 +167,26 @@ PORT_PLATES: Final = Fact[tuple[PortPlate, ...]](
     key="port_plates",
     question="Which port plates are on the bomb, and which ports does each have?",
     adapter=TypeAdapter(tuple[PortPlate, ...]),
+    description=(
+        "Ports, as pictured in the manual's Appendix C: DVI-D (long, with pins "
+        "in a grid), Parallel (long, two rows of pins), PS/2 (small and round), "
+        "RJ-45 (a network jack), Serial (trapezoid, two rows of pins), Stereo "
+        "RCA (a red and a white round socket)."
+    ),
+)
+
+
+def _has_parallel(plates: tuple[PortPlate, ...]) -> bool:
+    return any(Port.PARALLEL in plate for plate in plates)
+
+
+HAS_PARALLEL_PORT: Final = Fact[bool](
+    key="has_parallel_port",
+    question="Is there a parallel port on the bomb? (A long port, two rows of pins.)",
+    adapter=TypeAdapter(bool),
+    description="Answered by `port_plates` if those are known.",
+    derived_from=PORT_PLATES,
+    derive=_has_parallel,
 )
 
 EDGEWORK_FACTS: Final[tuple[Fact[Any], ...]] = (
@@ -174,6 +195,7 @@ EDGEWORK_FACTS: Final[tuple[Fact[Any], ...]] = (
     BATTERY_HOLDERS,
     INDICATORS,
     PORT_PLATES,
+    HAS_PARALLEL_PORT,
 )
 
 
@@ -189,6 +211,7 @@ class Edgework(Frozen):
     battery_holders: Count | None = None
     indicators: tuple[Indicator, ...] | None = None
     port_plates: tuple[PortPlate, ...] | None = None
+    has_parallel_port: bool | None = None
 
     def known(self) -> dict[str, JsonValue]:
         """The provided values, keyed by fact key."""

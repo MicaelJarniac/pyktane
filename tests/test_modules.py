@@ -15,6 +15,7 @@ from pyktane.context import Context
 from pyktane.edgework import Edgework
 from pyktane.errors import ModuleStateError, NeedsInfo
 from pyktane.session import Session
+from pyktane.vanilla import PACK
 from pyktane.vanilla.complicated_wires import (
     VENN,
     ComplicatedWires,
@@ -46,6 +47,7 @@ from pyktane.vanilla.wire_sequences import (
     WireSequencesInput,
     WireSequencesState,
 )
+lazy from pyktane.module import AnyModule
 
 NO_FACTS = Context()
 
@@ -95,7 +97,7 @@ class TestComplicatedWires:
         ("wire", "fact"),
         [
             ({"colors": ["red", "white"]}, "serial"),
-            ({"colors": ["blue"], "led": True}, "port_plates"),
+            ({"colors": ["blue"], "led": True}, "has_parallel_port"),
             ({"colors": ["white"], "star": True, "led": True}, "batteries"),
         ],
     )
@@ -602,3 +604,10 @@ def test_wrong_types_are_rejected(
     """Lenient parsers pass anything they don't understand on to Pydantic."""
     with pytest.raises(ValidationError):
         model.model_validate(data)
+
+
+@pytest.mark.parametrize("module", sorted(PACK.modules, key=repr), ids=repr)
+def test_every_module_has_valid_examples(module: AnyModule) -> None:
+    assert module.examples, "examples show callers the input shape"
+    for example in module.examples:
+        module.input_type.model_validate(example)

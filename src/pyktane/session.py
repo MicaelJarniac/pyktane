@@ -291,17 +291,30 @@ class Session:
         """Whether `undo` has anything to revert."""
         return bool(self._undo)
 
+    @property
+    def last_change(self) -> str:
+        """What `undo` would revert, in words; empty if nothing.
+
+        Example:
+            ``"add Simon as Simon#1; Simon#1 solved"``.
+        """
+        if not self._undo:
+            return ""
+        return "; ".join(_describe_splice(splice) for splice in self._undo[-1])
+
     def missing_facts(self) -> list[Fact[Any]]:
         """Facts no one has provided yet, in the order the manual defines them.
 
         Not every missing fact will be needed; solvers ask only for those
         their rules use. This helps a frontend gather the usual edgework up
-        front to save round trips.
+        front to save round trips. Derived facts (like `has_parallel_port`)
+        aren't listed: they're quick questions asked only when needed.
         """
+        context = self.state.context
         return [
             fact
-            for key, fact in self.manual.facts.items()
-            if key not in self.state.facts
+            for fact in self.manual.facts.values()
+            if fact.derived_from is None and not context.has(fact)
         ]
 
     def module_of(self, instance_id: str) -> AnyModule:
@@ -798,6 +811,15 @@ class Session:
         ).model_copy(update={"solve_order": (*state.solve_order, instance.id)})
         event = ModuleSolved(instance=instance.id, module=instance.module)
         return self._dispatch(solved, event)
+
+
+def _describe_splice(splice: Splice) -> str:
+    """A splice in words: what it added, removed or replaced."""
+    added = ", ".join(action.describe() for action in splice.inserted)
+    removed = ", ".join(action.describe() for action in splice.removed)
+    if added and removed:
+        return f"{removed} -> {added}"
+    return added or f"removed {removed}"
 
 
 def _needy_error(module: AnyModule) -> ModuleStateError:
