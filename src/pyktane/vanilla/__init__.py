@@ -15,13 +15,38 @@ from typing import Final
 from pyktane.packs import Pack
 from pyktane.vanilla._manual import MANUAL_VERSION
 from pyktane.vanilla.button import Button
+from pyktane.vanilla.complicated_wires import ComplicatedWires
+from pyktane.vanilla.keypads import Keypad
+from pyktane.vanilla.maze import Maze
 from pyktane.vanilla.memory import Memory
+from pyktane.vanilla.morse import Morse
+from pyktane.vanilla.needy import CapacitorDischarge, Knobs, VentingGas
+from pyktane.vanilla.passwords import Passwords
 from pyktane.vanilla.simon import SimonSays
+from pyktane.vanilla.whos_on_first import WhosOnFirst
+from pyktane.vanilla.wire_sequences import WireSequences
 from pyktane.vanilla.wires import Wires
 
 PACK: Final = Pack(
     id="vanilla",
     version=MANUAL_VERSION,
     name=f"Keep Talking and Nobody Explodes (manual v{MANUAL_VERSION})",
-    modules=(Wires(), Button(), SimonSays(), Memory()),
+    modules=(
+        # Section 1, in the manual's order.
+        Wires(),
+        Button(),
+        Keypad(),
+        SimonSays(),
+        WhosOnFirst(),
+        Memory(),
+        Morse(),
+        ComplicatedWires(),
+        WireSequences(),
+        Maze(),
+        Passwords(),
+        # Section 2: needy modules.
+        VentingGas(),
+        CapacitorDischarge(),
+        Knobs(),
+    ),
 )

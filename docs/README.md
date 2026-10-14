@@ -155,7 +155,11 @@ for change in revision.changed:  # and hear which answers were wrong.
 bomb.undo()  # Every change, corrections included, can be undone.
 ```
 
-Supported modules so far: Wires, The Button, Simon Says and Memory.
+Every module in the base game is supported: Wires, The Button, Keypads,
+Simon Says, Who's on First, Memory, Morse Code, Complicated Wires, Wire
+Sequences, Mazes and Passwords, plus the needy Venting Gas, Capacitor
+Discharge and Knobs. Their rules are checked against the official manual
+(v1, verification code 241).
 
 ### With an AI assistant (MCP)
 

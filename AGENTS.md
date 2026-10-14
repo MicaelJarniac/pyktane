@@ -147,9 +147,16 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
 - The vanilla pack's `version` is the manual version (`vanilla/_manual.py`).
   If Steel Crate Games publishes a new manual, add a new pack version rather
   than editing v1's rules.
-- Cross-check, last done 2026-10-13: Wires, The Button and Memory rule
-  sentences match the official manual word for word, and both Simon Says
-  tables match it cell for cell.
+- `tests/manual/` keeps a copy of the official web manual plus the SVGs
+  whose drawings are data (the nine mazes, the Morse chart, the Venn
+  legend). `tests/test_official_manual.py` parses them and compares every
+  rule table with the solvers' constants: keypad columns, Who's on First,
+  Morse words and chart, Complicated Wires (from the Venn diagram's
+  geometry), Wire Sequences, mazes, passwords, knob patterns and Simon Says.
+  Rule sentences (Wires, The Button, Memory) were compared word for word on
+  2026-10-13. To check a new manual, replace those files and run the tests.
+- Keypad symbols are pictures. They're named after the manual's image files
+  and accept Unicode look-alikes and common names (`keypads.ALIASES`).
 
 ### Adding a vanilla module
 
@@ -163,7 +170,12 @@ must never import a frontend dependency (`fastmcp`, `mcp`, ...);
 4. Test every rule branch (parametrized cases with a comment naming the rule),
    plus a Hypothesis property where one exists (e.g. "always cuts an existing
    wire").
-5. Add it to `docs/api.md`.
+5. If it has a rule table, add a test to `tests/test_official_manual.py`
+   that parses that table out of the saved manual.
+6. Add it to `docs/api.md`.
+7. Inputs are what an AI hears from a person: accept case and spacing
+   variations, give near-miss suggestions in errors, and let partial reports
+   (Morse letters, password columns) narrow things down instead of failing.
 
 ## Code conventions
 
@@ -262,8 +274,7 @@ Caveats:
 ## Roadmap
 
 1. ~~Optional MCP server~~ (done: `pyktane[mcp]`).
-2. Remaining vanilla modules (Keypads, Who's on First, Morse, Complicated
-   Wires, Wire Sequences, Mazes, Passwords) and needy modules.
+2. ~~All vanilla modules, needy included~~ (done).
 3. On-disk persistence (`platformdirs`, save/load/list, also as MCP tools).
    The format already exists (`SavedSession`, v2: the action log plus undo
    splices).

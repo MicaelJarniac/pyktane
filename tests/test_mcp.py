@@ -157,12 +157,9 @@ async def test_list_facts(client: Client[Any]) -> None:
 
 async def test_list_and_describe_modules(client: Client[Any]) -> None:
     modules = (await call(client, "list_modules"))["result"]
-    assert [module["name"] for module in modules] == [
-        "Memory",
-        "Simon Says",
-        "The Button",
-        "Wires",
-    ]
+    assert [module["name"] for module in modules] == sorted(
+        module.name for module in PACK.modules
+    )
     assert modules[0]["pack"] == "vanilla@1"
     found = (await call(client, "list_modules", query="wirez"))["result"]
     assert [module["id"] for module in found] == ["Wires"]
@@ -200,7 +197,7 @@ async def test_memory_strike_on_its_instance(client: Client[Any]) -> None:
     ("tool", "arguments", "message"),
     [
         ("add_module", {"module": "memroy"}, "did you mean 'Memory'?"),
-        ("describe_module", {"module": "keypad"}, "no module matches 'keypad'"),
+        ("describe_module", {"module": "xylophone"}, "no module matches 'xylophone'"),
         ("solve", {"instance": "Wires#9", "data": {}}, "no module instance"),
         ("strike", {"instance": "Wires#9"}, "no module instance"),
         ("mark_solved", {"instance": "Wires#9"}, "no module instance"),

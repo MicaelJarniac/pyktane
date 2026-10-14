@@ -43,9 +43,25 @@ just names the module it documents.
 
 ::: pyktane.vanilla.button
 
+::: pyktane.vanilla.keypads
+
 ::: pyktane.vanilla.simon
 
+::: pyktane.vanilla.whos_on_first
+
 ::: pyktane.vanilla.memory
+
+::: pyktane.vanilla.morse
+
+::: pyktane.vanilla.complicated_wires
+
+::: pyktane.vanilla.wire_sequences
+
+::: pyktane.vanilla.maze
+
+::: pyktane.vanilla.passwords
+
+::: pyktane.vanilla.needy
 
 ## MCP server
 

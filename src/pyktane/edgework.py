@@ -21,6 +21,7 @@ __all__: tuple[str, ...] = (
     "PortPlate",
     "SerialNumber",
     "count_ports",
+    "has_port",
     "has_vowel",
     "is_lit",
     "is_unlit",
@@ -208,3 +209,13 @@ def is_unlit(indicators: tuple[Indicator, ...], label: IndicatorLabel) -> bool:
 def count_ports(plates: tuple[PortPlate, ...], port: Port) -> int:
     """How many of `port` there are across all plates."""
     return sum(port in plate for plate in plates)
+
+
+def has_port(plates: tuple[PortPlate, ...], port: Port) -> bool:
+    """Whether any plate has `port`.
+
+    Example:
+        >>> has_port((frozenset({Port.PARALLEL}), frozenset()), Port.PARALLEL)
+        True
+    """
+    return count_ports(plates, port) > 0

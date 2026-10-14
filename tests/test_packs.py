@@ -105,11 +105,11 @@ def test_unknown_module_suggests_close_names() -> None:
 @pytest.mark.parametrize(
     ("query", "expected"),
     [
-        ("", ["Memory", "Simon Says", "The Button", "Wires"]),  # Everything.
+        ("", [module.name for module in sorted(VANILLA.modules, key=lambda m: m.name)]),
         ("simon", ["Simon Says"]),  # Substring of the name.
         ("BIG", ["The Button"]),  # Substring of the ID (BigButton).
         ("Wirez", ["Wires"]),  # Typo.
-        ("keypad", []),  # Nothing close.
+        ("xylophone", []),  # Nothing close.
     ],
 )
 def test_search(query: str, expected: list[str]) -> None:
