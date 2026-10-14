@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.4.1 (2026-10-14)
+
+### Bug Fixes
+
+- Let defusers report self-solved modules, and never solve needy ones
+  ([`6338209`](https://github.com/MicaelJarniac/pyktane/commit/6338209198e39215e8ea8791832cd349254f31c9))
+
+### Continuous Integration
+
+- Keep pre-commit off the saved copy of the official manual
+  ([`02ad8bd`](https://github.com/MicaelJarniac/pyktane/commit/02ad8bd28de38bedc0f66a4a71a87793cc16088c))
+
+
 ## v0.4.0 (2026-10-14)
 
 ### Features
