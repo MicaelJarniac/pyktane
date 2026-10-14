@@ -1,6 +1,6 @@
 [project]
 name = "pyktane"
-version = "0.4.1"
+version = "0.5.0"
 description = "Python KTANE utilities."
 authors = [
   {name = "Micael Jarniac", email = "micael@jarniac.dev"},

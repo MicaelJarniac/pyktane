@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.5.0 (2026-10-14)
+
+### Features
+
+- Tune the MCP server for voice play
+  ([`e754d7e`](https://github.com/MicaelJarniac/pyktane/commit/e754d7e0693168ca4459ce780dd3753cac686d68))
+
+### Breaking Changes
+
+- MCP write tools (set_facts, forget_fact, remove_module, strike, mark_solved, edit_history) return
+  `{done, strikes, unsolved, changed}` instead of the full bomb summary, and `undo` returns
+  `{undone, strikes, unsolved}`; call `get_bomb` for the full state. `add_module` returns `{id,
+  name, needy, guide, examples}`. `solve`'s `needs_fact` result has `facts` (a list) and `partial`
+  instead of `fact`. Complicated Wires asks for `has_parallel_port` instead of `port_plates`.
+
+
 ## v0.4.1 (2026-10-14)
 
 ### Bug Fixes
