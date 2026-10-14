@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.4.0 (2026-10-14)
+
+### Features
+
+- Support every vanilla module, checked against the official manual
+  ([`37ad422`](https://github.com/MicaelJarniac/pyktane/commit/37ad422632710e89bd3a95238d6890d7ed87c2ef))
+
+
 ## v0.3.0 (2026-10-13)
 
 ### Documentation
