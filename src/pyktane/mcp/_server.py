@@ -48,6 +48,11 @@ defuser looking at the bomb, and these tools hold the manual.
 5. Read `instruction` back to the defuser in plain words.
 6. Report strikes with `strike` (some answers change with the strike count)
    and finished modules with `mark_solved`.
+7. If the defuser solved a module on their own, don't ask them to describe
+   it: just `mark_solved` with its name (e.g. "Simon Says"). It's added if
+   needed. Boss modules in modded packs can depend on what was solved.
+8. Needy modules (Venting Gas, Capacitor Discharge, Knobs; `needy: true`)
+   can't be disarmed. Help each time they activate; never mark them solved.
 
 Fixing mistakes:
 - A module was misread ("6 wires... wait, 5"): call `solve` again with
@@ -81,7 +86,9 @@ def _fact_info(fact: Fact[Any]) -> FactInfo:
 
 def _module_summary(manual: Manual, module: AnyModule) -> ModuleSummary:
     pack = next(pack for pack in manual.packs if module in pack.modules)
-    return ModuleSummary(id=module.id, name=module.name, pack=str(pack.ref))
+    return ModuleSummary(
+        id=module.id, name=module.name, pack=str(pack.ref), needy=module.needy
+    )
 
 
 def _changed(revision: Revision) -> tuple[ChangedAnswerInfo, ...]:
@@ -149,6 +156,7 @@ class _Bomb:
                     module=instance.module,
                     name=self.manual.module(instance.module).name,
                     solved=instance.solved,
+                    needy=self.manual.module(instance.module).needy,
                 )
                 for instance in state.instances
             ],
@@ -311,8 +319,20 @@ def create_server(manual: Manual | None = None) -> FastMCP:  # noqa: C901, PLR09
         )
 
     @server.tool(annotations=_WRITE)
-    def mark_solved(instance: Annotated[str, _INSTANCE]) -> Updated:
-        """Record that a module was disarmed."""
+    def mark_solved(
+        instance: Annotated[
+            str,
+            Field(
+                description="Instance ID from `add_module`, or a module's name "
+                "or ID (e.g. 'Simon Says') if the defuser solved it on their "
+                "own; it's added if the bomb doesn't have an unsolved one."
+            ),
+        ],
+    ) -> Updated:
+        """Record that a module was disarmed, with our help or by the defuser alone.
+
+        Not for needy modules: they can't be disarmed.
+        """
         return bomb.updated(
             _report_errors("module", lambda: bomb.session.mark_solved(instance))
         )

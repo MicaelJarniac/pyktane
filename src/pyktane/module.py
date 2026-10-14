@@ -3,7 +3,7 @@
 __all__: tuple[str, ...] = ("AnyModule", "Module", "NoState", "StatelessModule")
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel
 
@@ -38,6 +38,8 @@ class Module[I: BaseModel, O: Answer, S: Frozen](ABC):
             kinds of input (see The Button).
         output_type: What the expert answers.
         state_type: What the module remembers between inputs.
+        needy: Whether it's a needy module: one that can't be disarmed and
+            keeps reactivating, so it's never marked solved.
     """
 
     id: str
@@ -47,6 +49,7 @@ class Module[I: BaseModel, O: Answer, S: Frozen](ABC):
     input_type: type[I]
     output_type: type[O]
     state_type: type[S]
+    needy: ClassVar[bool] = False
 
     def initial_state(self) -> S:
         """State of a freshly added module."""

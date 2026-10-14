@@ -305,3 +305,51 @@ def test_events_reach_other_instances() -> None:
 
     restored = Session.from_json(bomb.to_json(), available=(VANILLA, boss_pack))
     assert restored.solve(boss, {}).instruction == "Memory then Wires"
+
+
+class TestMarkSolved:
+    """The defuser may solve modules without the expert."""
+
+    def test_by_name_adds_the_module(self, bomb: Session) -> None:
+        bomb.mark_solved("simon says")
+        assert [e.describe() for e in bomb.history] == [
+            "0: add Simon as Simon#1",
+            "1: Simon#1 solved",
+        ]
+        assert bomb.undo()  # Both at once.
+        assert bomb.actions == ()
+
+    def test_by_name_uses_the_unsolved_instance(self, bomb: Session) -> None:
+        first, second = bomb.add_module("Simon"), bomb.add_module("Simon")
+        bomb.mark_solved(first)
+        bomb.mark_solved("Simon")
+        assert bomb.state.solve_order == (first, second)
+        # All solved: another one by name must be a module not yet mentioned.
+        bomb.mark_solved("Simon")
+        assert bomb.state.solve_order[-1] == "Simon#3"
+
+    def test_by_name_with_several_unsolved(self, bomb: Session) -> None:
+        bomb.add_module("Memory")
+        bomb.add_module("Memory")
+        with pytest.raises(ConflictError, match="say which one"):
+            bomb.mark_solved("memory")
+        assert len(bomb.actions) == 2
+
+    def test_unknown_target(self, bomb: Session) -> None:
+        with pytest.raises(UnknownInstanceError, match="no module by that name"):
+            bomb.mark_solved("xylophone")
+
+    @pytest.mark.parametrize("module", ["Venting Gas", "Capacitor Discharge", "Knobs"])
+    def test_needy_modules_cant_be_solved(self, bomb: Session, module: str) -> None:
+        instance = bomb.add_module(module)
+        assert bomb.module_of(instance).needy
+        for target in (instance, module):
+            with pytest.raises(ModuleStateError, match="needy module"):
+                bomb.mark_solved(target)
+        assert not bomb.state.instance(instance).solved
+
+    def test_needy_rule_holds_on_replay(self, bomb: Session) -> None:
+        """A hand-edited history can't sneak a needy solve in either."""
+        knob = bomb.add_module("Knobs")
+        with pytest.raises(ModuleStateError, match="needy module"):
+            bomb.insert_action(1, MarkSolved(instance=knob))

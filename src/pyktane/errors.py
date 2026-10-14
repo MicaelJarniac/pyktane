@@ -47,16 +47,20 @@ class UnknownFactError(UnknownError):
     """No loaded pack defines a fact with this key."""
 
 
-class UnknownModuleError(UnknownError):
-    """No loaded pack defines a module with this ID or name."""
-
-
 class UnknownPackError(UnknownError):
     """No installed pack matches a reference."""
 
 
-class UnknownInstanceError(UnknownError):
-    """The session has no module instance with this ID."""
+class UnknownModuleError(UnknownError):
+    """No loaded pack defines a module with this ID or name."""
+
+
+class UnknownInstanceError(UnknownModuleError):
+    """The session has no module instance with this ID.
+
+    It's an `UnknownModuleError` too, since some calls take either an
+    instance ID or a module.
+    """
 
 
 class UnknownActionError(UnknownError):

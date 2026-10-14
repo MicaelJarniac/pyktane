@@ -102,11 +102,14 @@ class ModuleSummary(Frozen):
         id: Stable module ID; pass it (or the name) to `add_module`.
         name: Name as printed in the manual.
         pack: The pack providing it, as ``id@version``.
+        needy: Needy modules can't be disarmed, only tended whenever they
+            activate; never mark them solved.
     """
 
     id: str
     name: str
     pack: str
+    needy: bool = False
 
 
 class ModuleDetails(ModuleSummary):
@@ -131,12 +134,14 @@ class InstanceSummary(Frozen):
         module: Its module ID.
         name: Its module name.
         solved: Whether it has been disarmed.
+        needy: Whether it's a needy module (never solved).
     """
 
     id: str
     module: str
     name: str
     solved: bool
+    needy: bool = False
 
 
 class BombSummary(Frozen):

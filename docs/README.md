@@ -188,7 +188,7 @@ to do.
 | `list_facts` / `set_facts` | What can be recorded about the bomb, and recording it |
 | `list_modules` / `describe_module` | Supported modules, and what to report for each |
 | `add_module` / `solve` | Add a module, then get the answer (or a question to ask first) |
-| `strike` / `mark_solved` | Keep the bomb's state in sync |
+| `strike` / `mark_solved` | Keep the bomb's state in sync; `mark_solved` takes a module name when the defuser solved it alone |
 | `solve` with `correction: true` | Replace a module's misread report |
 | `get_history` / `edit_history` | Find and fix any past mistake (a strike that wasn't one, ...) |
 | `forget_fact` / `remove_module` / `undo` | Take back facts, modules, or the latest change |

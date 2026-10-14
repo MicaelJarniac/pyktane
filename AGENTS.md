@@ -259,6 +259,13 @@ Caveats:
   the 2+ strike table so bombs with higher strike limits still work.
 - Memory resets only on a strike **on that instance**
   (`Strike.instance == instance`), not on strikes elsewhere.
+- Defusers may solve modules alone. `mark_solved` takes a module name as
+  well as an instance ID; with a name it picks the single unsolved instance,
+  or adds one and marks it solved in one undoable change. Nothing has to
+  have been reported first, since only the bomb knows a module is disarmed.
+- Needy modules set `needy = True`. They can't be disarmed, so
+  `mark_solved` rejects them, also on replay, which keeps them out of the
+  solve order that modded boss modules read.
 - `Manual()` rejects ambiguous setups instead of guessing: two packs with the
   same module ID need an override, and several installed versions of a pack
   need a pinned `PackRef`.

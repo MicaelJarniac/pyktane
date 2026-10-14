@@ -62,6 +62,7 @@ from pyktane.errors import (
     UnknownActionError,
     UnknownFactError,
     UnknownInstanceError,
+    UnknownModuleError,
 )
 from pyktane.events import Event, ModuleSolved, Strike
 from pyktane.packs import Manual, Pack, Ruleset
@@ -361,11 +362,7 @@ class Session:
         """
         module = self.manual.module(query)
         if instance_id is None:
-            taken = {instance.id for instance in self.state.instances}
-            n = 1
-            while f"{module.id}#{n}" in taken:
-                n += 1
-            instance_id = f"{module.id}#{n}"
+            instance_id = self._next_instance_id(module.id)
         action = AddModule(instance=instance_id, module=module.id)
         self._change([self._append_splice(action)])
         return instance_id
@@ -409,14 +406,59 @@ class Session:
         """
         return self._change([self._append_splice(AddStrike(instance=instance_id))])
 
-    def mark_solved(self, instance_id: str) -> Revision:
-        """Record that a module was disarmed.
+    def mark_solved(self, target: str) -> Revision:
+        """Record that a module was disarmed, by the expert's answers or not.
+
+        A defuser who solves a module on their own just says so: nothing has
+        to be reported about it first, and it doesn't even have to have been
+        added. `target` is an instance ID, or a module ID or name:
+
+        - with an instance ID, that instance is marked solved;
+        - with a module, its one unsolved instance is marked solved, or, if
+          it has none (bombs can carry several of a module, and a defuser
+          solving one alone may not have mentioned it), a new one is added
+          and marked solved, as two actions in one change, so one `undo`
+          reverts both.
 
         Raises:
-            UnknownInstanceError: There is no such instance.
-            ModuleStateError: It was already solved.
+            UnknownModuleError: `target` is neither an instance nor a module.
+            ConflictError: The module has several unsolved instances, so it's
+                unclear which one was meant; pass an instance ID.
+            ModuleStateError: It's already solved, or it's a needy module
+                (those can't be disarmed).
         """
-        return self._change([self._append_splice(MarkSolved(instance=instance_id))])
+        if any(instance.id == target for instance in self.state.instances):
+            return self._change([self._append_splice(MarkSolved(instance=target))])
+        try:
+            module = self.manual.module(target)
+        except UnknownModuleError:
+            known = ", ".join(i.id for i in self.state.instances) or "none"
+            msg = (
+                f"no module instance {target!r} (known: {known}), "
+                "and no module by that name"
+            )
+            raise UnknownInstanceError(msg) from None
+        if module.needy:
+            raise _needy_error(module)
+        unsolved = [
+            instance.id
+            for instance in self.state.instances
+            if instance.module == module.id and not instance.solved
+        ]
+        if len(unsolved) > 1:
+            msg = (
+                f"the bomb has several unsolved {module.name} modules "
+                f"({', '.join(unsolved)}); say which one"
+            )
+            raise ConflictError(msg)
+        if unsolved:
+            return self._change([self._append_splice(MarkSolved(instance=unsolved[0]))])
+        instance_id = self._next_instance_id(module.id)
+        added = AddModule(instance=instance_id, module=module.id)
+        solved = MarkSolved(instance=instance_id)
+        return self._change(
+            [Splice(index=len(self._actions), inserted=(added, solved))]
+        )
 
     # Correcting
 
@@ -546,6 +588,13 @@ class Session:
         return cls.restore(SavedSession.model_validate_json(data), available=available)
 
     # Internals
+
+    def _next_instance_id(self, module_id: str) -> str:
+        taken = {instance.id for instance in self.state.instances}
+        n = 1
+        while f"{module_id}#{n}" in taken:
+            n += 1
+        return f"{module_id}#{n}"
 
     def _action_at(self, index: int) -> Action:
         if not 0 <= index < len(self._actions):
@@ -738,6 +787,9 @@ class Session:
 
     def _mark_solved(self, state: BombState, action: MarkSolved) -> BombState:
         instance = state.instance(action.instance)
+        module = self.manual.module(instance.module)
+        if module.needy:
+            raise _needy_error(module)
         if instance.solved:
             msg = f"{action.instance} is already solved"
             raise ModuleStateError(msg)
@@ -746,6 +798,13 @@ class Session:
         ).model_copy(update={"solve_order": (*state.solve_order, instance.id)})
         event = ModuleSolved(instance=instance.id, module=instance.module)
         return self._dispatch(solved, event)
+
+
+def _needy_error(module: AnyModule) -> ModuleStateError:
+    return ModuleStateError(
+        f"{module.name} is a needy module: it can't be disarmed, only tended "
+        "each time it activates, so it's never marked solved"
+    )
 
 
 def _as_json(data: Mapping[str, Any] | BaseModel) -> JsonValue:

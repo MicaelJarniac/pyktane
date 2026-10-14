@@ -74,8 +74,12 @@ async def test_lists_the_expected_tools(client: Client[Any]) -> None:
 async def test_a_round_with_a_question(client: Client[Any]) -> None:
     """Missing facts come back as a question, not an error, and retrying works."""
     simon = await call(client, "add_module", module="simon says")
-    assert simon == {"id": "Simon#1", "module": "Simon", "name": "Simon Says"} | {
-        "solved": False
+    assert simon == {
+        "id": "Simon#1",
+        "module": "Simon",
+        "name": "Simon Says",
+        "solved": False,
+        "needy": False,
     }
 
     data = {"flashes": ["red", "green"]}
@@ -388,3 +392,39 @@ async def test_correction_mistakes_are_explained(client: Client[Any]) -> None:
     assert "no module instance" in await error(
         client, "remove_module", instance="Nope#1"
     )
+
+
+async def test_defuser_solved_it_alone(client: Client[Any]) -> None:
+    """No report needed, and the module doesn't have to be added first."""
+    updated = await call(client, "mark_solved", instance="simon says")
+    (simon,) = updated["bomb"]["modules"]
+    assert (simon["id"], simon["solved"]) == ("Simon#1", True)
+    history = (await call(client, "get_history"))["result"]
+    assert [item["summary"] for item in history] == [
+        "add Simon as Simon#1",
+        "Simon#1 solved",
+    ]
+    # One undo takes back both.
+    assert (await call(client, "undo"))["bomb"]["modules"] == []
+
+
+async def test_needy_modules_are_never_solved(client: Client[Any]) -> None:
+    modules = (await call(client, "list_modules"))["result"]
+    assert {m["name"] for m in modules if m["needy"]} == {
+        "Venting Gas",
+        "Capacitor Discharge",
+        "Knobs",
+    }
+    knob = await call(client, "add_module", module="Knobs")
+    assert knob["needy"]
+    for target in ("Knobs", "NeedyKnob#1"):
+        assert "is a needy module" in await error(
+            client, "mark_solved", instance=target
+        )
+
+
+async def test_ambiguous_module_name(client: Client[Any]) -> None:
+    await call(client, "add_module", module="Memory")
+    await call(client, "add_module", module="Memory")
+    message = await error(client, "mark_solved", instance="Memory")
+    assert "several unsolved Memory modules (Memory#1, Memory#2)" in message

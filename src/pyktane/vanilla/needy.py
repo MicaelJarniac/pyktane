@@ -62,6 +62,7 @@ class VentingGas(StatelessModule[VentingGasInput, VentingGasAnswer]):
     """Answer the computer's question: yes to venting, no to detonating."""
 
     id = "NeedyVentGas"
+    needy = True
     name = "Venting Gas"
     manual_url = section_url("VentingGas")
     guide = 'Report the question on the screen: "VENT GAS?" or "DETONATE?".'
@@ -83,6 +84,7 @@ class CapacitorDischarge(StatelessModule[CapacitorInput, Answer]):
     """Hold the lever to discharge the capacitor."""
 
     id = "NeedyCapacitor"
+    needy = True
     name = "Capacitor Discharge"
     manual_url = section_url("CapacitorDischarge")
     guide = "Nothing to report; just ask what to do."
@@ -179,6 +181,7 @@ class Knobs(StatelessModule[KnobInput, KnobAnswer]):
     """Turn the knob to the position its LEDs spell."""
 
     id = "NeedyKnob"
+    needy = True
     name = "Knobs"
     manual_url = section_url("Knobs")
     guide = (
