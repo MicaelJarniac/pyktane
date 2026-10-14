@@ -25,3 +25,8 @@ indent_size = 2
 
 [Makefile]
 indent_style = tab
+
+# Byte-for-byte copies of the official manual; leave them exactly as published.
+[tests/manual/**]
+insert_final_newline = unset
+end_of_line = unset

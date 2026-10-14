@@ -1,0 +1,2 @@
+# Byte-for-byte copies of the official manual: no line-ending conversion.
+tests/manual/** -text

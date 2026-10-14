@@ -1,3 +1,6 @@
+# tests/manual/ holds byte-for-byte copies of the official manual: never
+# "fix" them, or they stop being what Steel Crate Games published.
+exclude: ^tests/manual/
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: 'v5.0.0'
